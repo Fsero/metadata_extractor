@@ -1,0 +1,11 @@
+# getting passwords, ips, users tried and data 
+
+sysdig -j -A -F -r srv02.superprivyhosting.com.2017-05-31-06-54.part2 container.id!=host and fd.num=4 and evt.is_io_write=true and evt.dir = '<' and proc.name=sshd | egrep -B1 PAM:
+
+{"evt.cpu":0,"evt.dir":"<","evt.info":"res=10 data=\n123456 ","evt.num":606326,"evt.outputtime":1496213937762652811,"evt.type":"write","proc.name":"sshd","thread.tid":21195}
+{"evt.cpu":0,"evt.dir":"<","evt.info":"res=136 data=\nLop=PAM:authentication acct=\"root\" exe=\"/usr/sbin/sshd\" hostname=62.112.11.94 addr=62.112.11.94 terminal=ssh res=failed ","evt.num":623140,"evt.outputtime":1496213939947218324,"evt.type":"sendto","proc.name":"sshd","thread.tid":21194}
+
+# getting bash activity? 
+
+sysdig -r srv02.superprivyhosting.com.2017-05-31-06-54.part2 -c spy_users container.id=63f6e3883d7c
+
