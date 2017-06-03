@@ -21,26 +21,28 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
+	"strconv"
 	"strings"
-	"time"
 
 	"bitbucket.org/fseros/metadata_ssh_extractor/helpers"
 
 	"regexp"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/asaskevich/govalidator"
 	"github.com/spf13/cobra"
 )
 
 var dataFile []string
 
 type AttackerData struct {
-	Date       time.Time
-	IP         string
-	User       string
-	Password   string
-	Action     string
-	Successful bool
+	UnixTime    string
+	IP          string
+	User        string
+	Password    string
+	Successful  bool
+	ContainerID string
 }
 
 //{"evt.cpu":0,"evt.dir":"<","evt.info":"res=10 data=\n123456 ","evt.num":191296,"evt.outputtime":1496213719701061056,"evt.type":"write","proc.name":"sshd","thread.tid":21053}
@@ -59,6 +61,21 @@ type Trace struct {
 	ThreadVTid          int    `json:"thread.vtid",omitempty`
 }
 
+type ByUnixTime []Trace
+
+func (a ByUnixTime) Len() int           { return len(a) }
+func (a ByUnixTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByUnixTime) Less(i, j int) bool { return a[i].EventOutputUnixTime < a[j].EventOutputUnixTime }
+
+type extraction struct {
+	User        string
+	Hostname    string
+	Success     string
+	Password    string
+	IP          string
+	ContainerID string
+}
+
 // sshCmd represents the ssh command
 var sshCmd = &cobra.Command{
 	Use:   "ssh",
@@ -73,7 +90,7 @@ var sshCmd = &cobra.Command{
 
 		}
 		fmt.Printf("%+v", args)
-
+		var loginAttempts []AttackerData
 		if !checkSysdigAvailable() {
 			log.Fatal("we cannot find sysdig")
 		}
@@ -82,7 +99,10 @@ var sshCmd = &cobra.Command{
 				log.Debugf(" %s does not exist", f)
 				continue
 			}
-			extractAttackerData(f)
+			loginAttempts = extractAttackerData(f)
+		}
+		for _, attempt := range loginAttempts {
+			log.Infof("%+v", attempt)
 		}
 
 	},
@@ -92,6 +112,7 @@ func init() {
 
 	sshCmd.Flags().StringSliceVarP(&dataFile, "file", "f", make([]string, 1), "file to process")
 	RootCmd.AddCommand(sshCmd)
+	log.SetLevel(log.InfoLevel)
 
 	// Here you will define your flags and configuration settings.
 
@@ -114,35 +135,142 @@ func checkSysdigAvailable() bool {
 	return true
 }
 
-func parseTrace(trace Trace) AttackerData {
-	var data AttackerData
-	re := regexp.MustCompile(`(res=\d+) (data=.*PAM.*)(acct=.*)(exe=.*)(hostname=.*)(addr=[\d{1,3}\.]+).*(res=failed|success).*`)
-	str := strings.Replace(trace.EventInfo, "\n", "", -1)
-	fmt.Println(str)
-	if re.MatchString(str) {
-		log.Info("found")
-		fields := re.FindStringSubmatch(str)
-		log.Info(fields)
-		for _, field := range fields {
-			field = strings.Replace(field, `"`, "", -1)
-			subfields := strings.Split(field, "=")
-			if len(subfields) > 1 {
-				log.Info(subfields[1])
-			}
-		}
+func splitFieldsBySep(sep string, input string, output *[]string) {
+	input = strings.Replace(input, `"`, "", -1)
+	sub := strings.Split(input, sep)
+	if len(sub) > 1 {
+		*output = append(*output, fmt.Sprintf("%s", strings.Join(sub[1:], "")))
 	} else {
-		//re2 := regexp.MustCompile(`(res=\d+) (data=.*PAM.*)(acct=.*)(exe=.*)(hostname=.*)(addr=[\d{1,3}\.]+).*(res=failed|success).*`)
-
-		log.Info("not found")
-
+		*output = append(*output, fmt.Sprintf("%s", strings.Join(sub[0:], "")))
 	}
-	return data
 }
 
-func extractAttackerData(file string) AttackerData {
+func validateCapture(capture extraction) bool {
+	if !govalidator.IsIP(capture.IP) {
+		log.Debugf("[validateCapture] invalid ip %s", capture.IP)
+		return false
+	}
+	if !govalidator.IsASCII(capture.User) {
+		log.Debugf("[validateCapture] invalid user %s", capture.User)
+		return false
+	}
+	if !((capture.Success != "") && (capture.Success == "success" || capture.Success == "failed")) {
+
+		log.Debugf("[validateCapture] invalid success state %s", capture.Success)
+		return false
+	}
+
+	if len(capture.Password) == 0 {
+		log.Debug("[validateCapture] no password captured ")
+		return false
+	}
+	if len(capture.Password) > 30 {
+		log.Debug("[validateCapture] invalid password")
+		return false
+	}
+	return true
+}
+
+func extractLoginAttempt(capture *extraction, fields []string) {
+
+	var subfields []string
+	subfields = make([]string, 1)
+
+	for key, field := range fields {
+		if key == 0 {
+			continue
+		}
+		if key == 2 {
+			subfields = append(subfields, fmt.Sprintf("%s", field))
+			continue
+		}
+		splitFieldsBySep("=", field, &subfields)
+	}
+	capture.User = subfields[3]
+	capture.Hostname = subfields[5]
+	capture.IP = subfields[6]
+	capture.Success = subfields[7]
+}
+
+func extractPassword(capture *extraction, fields []string) {
+	var subfields []string
+	subfields = make([]string, 1)
+
+	for key, field := range fields {
+		if key == 0 {
+			continue
+		}
+		splitFieldsBySep("=", field, &subfields)
+	}
+	str := strings.Join(subfields[2:], "")
+	if strings.Contains(str, "PAM:") || len(str) > 30 {
+		capture.Password = "'NOTFOUND'"
+	} else {
+		capture.Password = subfields[2]
+	}
+}
+
+func parseTraces(traces []Trace) []AttackerData {
+	// on traces password appears first and then login attempt info.
+	// traces should be ordered by time
+	/*
+		{63f6e3883d7c ssh 0 < res=10 data=
+		abc123  159003 1496213704714312629 write sshd 21037 13946}
+		{63f6e3883d7c ssh 0 < res=140 data=
+		Lop=PAM:authentication acct="root" exe="/usr/sbin/sshd" hostname=107.160.16.221 addr=107.160.16.221 terminal=ssh res=success  159104 1496213704727977064 sendto sshd 21036 13945}
+
+	*/
+	var LoginAttempts []AttackerData
+	LoginAttempts = make([]AttackerData, 0)
+	loginAttemptRegexp := regexp.MustCompile(`(res=\d+) (data=.*PAM:authentication.*)(acct=.*)(exe=.*)(hostname=.*)(addr=[\d{1,3}\.]+).*(res=failed|success).*`)
+	passwordInputRegexp := regexp.MustCompile(`(res=\d+) (data=.*)`)
+
+	var capture extraction
+	for _, trace := range traces {
+		str := strings.Replace(trace.EventInfo, "\n", "", -1)
+		if capture.ContainerID != "" && capture.ContainerID != trace.ContainerId {
+			capture.ContainerID = trace.ContainerId
+			capture = extraction{}
+		} else {
+			capture.ContainerID = trace.ContainerId
+		}
+		log.Debugf("[parseTraces] line to parse %s", str)
+		log.Debugf("[parseTraces] original trace %s", trace)
+
+		// no password captured yet, so processing it.
+		if capture.Password == "" && passwordInputRegexp.MatchString(str) {
+			fields := passwordInputRegexp.FindStringSubmatch(str)
+			extractPassword(&capture, fields)
+			log.Debugf("[parseTraces] from password %+v", capture)
+		}
+		if loginAttemptRegexp.MatchString(str) {
+			fields := loginAttemptRegexp.FindStringSubmatch(str)
+			extractLoginAttempt(&capture, fields)
+			log.Debugf("[parseTraces] from login %+v", capture)
+
+		}
+
+		if validateCapture(capture) {
+			var data AttackerData
+			data.IP = capture.IP
+			data.Password = capture.Password
+			data.Successful = (capture.Success == "success")
+			data.UnixTime = (strconv.FormatInt(trace.EventOutputUnixTime, 10)[0:13])
+			data.ContainerID = capture.ContainerID
+			log.Debugf("[parseTraces] attempt added %+v", data)
+			LoginAttempts = append(LoginAttempts, data)
+			capture = extraction{}
+		} else {
+			log.Debugf("Attempt not valid! %+v", capture)
+		}
+	}
+	return LoginAttempts
+}
+
+func extractAttackerData(file string) []AttackerData {
 	//sysdig -j -A -F -r srv02.superprivyhosting.com.2017-05-31-06-54.part2 container.id!=host and fd.num=4 and evt.is_io_write=true and evt.dir = '<' and proc.name=sshd | egrep -B1 PAM:
 
-	sysdig := exec.Command("/usr/bin/sysdig", "-j", "-F", "-A", "-r", file, "container.id!=host", "and", "fd.num=4", "and", "evt.is_io_write=true", "and", "evt.dir", "=", "'<'", "and", "proc.name=sshd")
+	sysdig := exec.Command("/usr/bin/sysdig", "-pc", "-j", "-F", "-A", "-r", file, "container.id!=host", "and", "fd.num=4", "and", "evt.is_io_write=true", "and", "evt.dir", "=", "'<'", "and", "proc.name=sshd")
 	egrep := exec.Command("egrep", "-B1", "PAM:")
 	removedashes := exec.Command("egrep", "-v", "\\-")
 	output, _, err := helpers.Pipeline(sysdig, egrep, removedashes)
@@ -151,7 +279,6 @@ func extractAttackerData(file string) AttackerData {
 	}
 	//fmt.Printf("%s", output)
 	var traces []Trace
-	//st := `{"evt.cpu":0,"evt.dir":"<","evt.info":"res=136 data=\nLop=PAM:authentication acct=\"root\" exe=\"/usr/sbin/sshd\" hostname=62.112.11.94 addr=62.112.11.94 terminal=ssh res=failed ","evt.num":623140,"evt.outputtime":1496213939947218324,"evt.type":"sendto","proc.name":"sshd","thread.tid":21194}`
 
 	scanner := bufio.NewScanner(bytes.NewReader(output))
 	for scanner.Scan() {
@@ -169,9 +296,8 @@ func extractAttackerData(file string) AttackerData {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-	for _, trace := range traces {
-		parseTrace(trace)
-
-	}
-	return AttackerData{}
+	log.Infof("num of traces %s", len(traces))
+	sort.Sort(ByUnixTime(traces))
+	LoginAttempts := parseTraces(traces)
+	return LoginAttempts
 }
