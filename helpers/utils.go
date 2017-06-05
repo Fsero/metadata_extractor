@@ -2,7 +2,9 @@ package helpers
 
 import (
 	"bytes"
+	"fmt"
 	"os/exec"
+	"strings"
 )
 
 // Pipeline strings together the given exec.Cmd commands in a similar fashion
@@ -52,4 +54,14 @@ func Pipeline(cmds ...*exec.Cmd) (pipeLineOutput, collectedStandardError []byte,
 
 	// Return the pipeline output and the collected standard error
 	return output.Bytes(), stderr.Bytes(), nil
+}
+
+func SplitFieldsBySep(sep string, input string, output *[]string) {
+	input = strings.Replace(input, `"`, "", -1)
+	sub := strings.Split(input, sep)
+	if len(sub) > 1 {
+		*output = append(*output, fmt.Sprintf("%s", strings.Join(sub[1:], "")))
+	} else {
+		*output = append(*output, fmt.Sprintf("%s", strings.Join(sub[0:], "")))
+	}
 }

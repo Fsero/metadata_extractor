@@ -18,22 +18,33 @@ import (
 	"fmt"
 	"os"
 
+	"bitbucket.org/fseros/metadata_ssh_extractor/writers"
+
+	log "github.com/Sirupsen/logrus"
+
+	"github.com/asaskevich/govalidator"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
+type GlobalConfig struct {
+	cfgFile    string
+	writer     writers.OutputWriter
+	cfgWriters string
+	eshost     string
+	esport     string
+}
+
+var cfg GlobalConfig
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "metadata_ssh_extractor",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Use:   "metadata_extractor",
+	Short: "silly application that reads sysdig traces and get info",
+	Long: `This silly application reads from sysdig traces from potted containers and extracts data from them. It has
+	two functioning modes, one that process capture files from arguments and other that watches changes in filesystem through
+	fanotify and process them	
+	`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//	Run: func(cmd *cobra.Command, args []string) { },
@@ -55,22 +66,44 @@ func init() {
 	// Cobra supports Persistent Flags, which, if defined here,
 	// will be global for your application.
 
-	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.metadata_ssh_extractor.yaml)")
+	RootCmd.PersistentFlags().StringVarP(&cfg.cfgFile, "config", "c", "", "config file (default is $HOME/.metadata_extractor.yaml)")
+	RootCmd.PersistentFlags().StringVarP(&cfg.cfgWriters, "output", "o", "", "where to output between cli and es")
+	RootCmd.PersistentFlags().StringVar(&cfg.eshost, "elasticsearch_host", "", "host to connect to elasticsearch")
+	RootCmd.PersistentFlags().StringVar(&cfg.esport, "elasticsearch_port", "", "port to connect to elasticsearch")
+
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if cfgFile != "" { // enable ability to specify config file via flag
-		viper.SetConfigFile(cfgFile)
+	if cfg.cfgFile != "" { // enable ability to specify config file via flag
+		viper.SetConfigFile(cfg.cfgFile)
 	}
 
-	viper.SetConfigName(".metadata_ssh_extractor") // name of config file (without extension)
-	viper.AddConfigPath("$HOME")                   // adding home directory as first search path
-	viper.AutomaticEnv()                           // read in environment variables that match
+	viper.SetConfigName(".metadata_extractor") // name of config file (without extension)
+	viper.AddConfigPath("$HOME")               // adding home directory as first search path
+	viper.AutomaticEnv()                       // read in environment variables that match
+	if cfg.cfgWriters == "es" {
+		if !govalidator.IsHost(cfg.eshost) {
+			log.Fatal("invalid elasticsearch host")
+		}
+		if !govalidator.IsInt(cfg.esport) {
+			log.Fatal("invalid elasticsearch port")
+		}
+		es := writers.ElasticOutputClient{}
+		cfg.writer = &es
+		es.SetURL(cfg.eshost, cfg.esport)
+		es.SetSniff(false)
+		es.SetBulkSize(1)
+		if err := es.Init(); err != nil {
+			log.Fatal(err)
+		}
 
+	} else {
+		cfg.writer = &writers.CommandLineWriter{}
+	}
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())

@@ -14,8 +14,12 @@
 
 package main
 
-import "bitbucket.org/fseros/metadata_ssh_extractor/cmd"
+import (
+	"bitbucket.org/fseros/metadata_ssh_extractor/cmd"
+	log "github.com/Sirupsen/logrus"
+)
 
 func main() {
 	cmd.Execute()
+	log.SetLevel(log.DebugLevel)
 }
