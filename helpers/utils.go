@@ -4,7 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
+	"time"
+
+	"github.com/abh/geoip"
 )
 
 // Pipeline strings together the given exec.Cmd commands in a similar fashion
@@ -64,4 +68,25 @@ func SplitFieldsBySep(sep string, input string, output *[]string) {
 	} else {
 		*output = append(*output, fmt.Sprintf("%s", strings.Join(sub[0:], "")))
 	}
+}
+
+func InitializeGeoIP() *geoip.GeoIP {
+	file := "/usr/share/GeoIP/GeoIPCity.dat"
+
+	gi, err := geoip.Open(file)
+	if err != nil {
+		fmt.Printf("Could not open GeoIP database\n")
+	}
+	return gi
+}
+
+func ParseUnixTimestamp(timestamp string) (*time.Time, error) {
+	//we discard nanoseconds info
+	i, err := strconv.ParseInt(timestamp[0:10], 10, 64)
+
+	if err != nil {
+		return nil, err
+	}
+	tm := time.Unix(i, 0)
+	return &tm, err
 }
