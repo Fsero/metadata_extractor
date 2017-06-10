@@ -33,6 +33,8 @@ type GlobalConfig struct {
 	cfgWriters string
 	eshost     string
 	esport     string
+	probeID    string
+	follow     bool
 }
 
 var cfg GlobalConfig
@@ -70,6 +72,8 @@ func init() {
 	RootCmd.PersistentFlags().StringVarP(&cfg.cfgWriters, "output", "o", "", "where to output between cli and es")
 	RootCmd.PersistentFlags().StringVar(&cfg.eshost, "elasticsearch_host", "", "host to connect to elasticsearch")
 	RootCmd.PersistentFlags().StringVar(&cfg.esport, "elasticsearch_port", "", "port to connect to elasticsearch")
+	RootCmd.PersistentFlags().StringVarP(&cfg.probeID, "probeid", "i", "", "probe id on sinkers API")
+	RootCmd.PersistentFlags().BoolVarP(&cfg.follow, "follow", "f", false, "follow traces created on fs, needs -i parameter")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

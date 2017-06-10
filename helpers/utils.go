@@ -3,6 +3,9 @@ package helpers
 import (
 	"bytes"
 	"fmt"
+
+	log "github.com/Sirupsen/logrus"
+
 	"os/exec"
 	"strconv"
 	"strings"
@@ -75,7 +78,7 @@ func InitializeGeoIP() *geoip.GeoIP {
 
 	gi, err := geoip.Open(file)
 	if err != nil {
-		fmt.Printf("Could not open GeoIP database\n")
+		log.Fatalf("Could not open GeoIP database\n")
 	}
 	return gi
 }

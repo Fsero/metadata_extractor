@@ -149,7 +149,7 @@ func ExtractAttackerLoginAttempt(file string) []AttackerLoginAttempt {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-	log.Infof("num of traces %s", len(traces))
+	log.Debugf("num of traces %s", len(traces))
 	sort.Sort(ByUnixTime(traces))
 	LoginAttempts := parseTraces(traces)
 	return LoginAttempts

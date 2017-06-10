@@ -15,11 +15,16 @@
 package cmd
 
 import (
-	"fmt"
+	"context"
 	"os"
 
+	"golang.org/x/sync/errgroup"
+
+	"bitbucket.org/fseros/metadata_ssh_extractor/helpers"
 	"bitbucket.org/fseros/metadata_ssh_extractor/parsers"
 	log "github.com/Sirupsen/logrus"
+	"github.com/abh/geoip"
+	"github.com/rjeczalik/notify"
 	"github.com/spf13/cobra"
 )
 
@@ -31,24 +36,67 @@ var sshCmd = &cobra.Command{
 	this process is extremely cpu intensive and fragile, do not try at home.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// TODO: Work your own magic here
-		fmt.Println("ssh called")
-		fmt.Printf("%+v", args)
 		var loginAttempts []parsers.AttackerLoginAttempt
 		var activity []parsers.AttackerActivity
-
+		var geoIP *geoip.GeoIP
+		geoIP = helpers.InitializeGeoIP()
 		if !parsers.Init() {
 			log.Fatal("Unable to initialize ssh parser")
 		}
-		for _, f := range args {
-			if _, err := os.Stat(f); os.IsNotExist(err) {
-				log.Debugf(" %s does not exist", f)
-				continue
+		if !cfg.follow {
+			for _, f := range args {
+				if _, err := os.Stat(f); os.IsNotExist(err) {
+					log.Debugf(" %s does not exist", f)
+					continue
+				}
+				loginAttempts = parsers.ExtractAttackerLoginAttempt(f)
+				activity = parsers.ExtractAttackerActivity(f)
+				cfg.writer.WriteAttackerActivies(activity)
+				cfg.writer.WriteAttackerLoginAttempts(loginAttempts, geoIP)
 			}
-			loginAttempts = parsers.ExtractAttackerLoginAttempt(f)
-			activity = parsers.ExtractAttackerActivity(f)
+		} else {
+			if cfg.probeID == "" {
+				log.Fatalf("without a probeID its imposible to follow paths, set a valid probeID with -i")
+			}
+			g, ctx := errgroup.WithContext(context.TODO())
+			// Make the channel buffered to ensure no event is dropped. Notify will drop
+			// an event if the receiver is not able to keep up the sending pace.
+
+			c := make(chan notify.EventInfo, 1)
+			g.Go(func() error {
+				// Set up a watchpoint listening for events within a directory tree rooted
+				// at current working directory. Dispatch remove events to c.
+				if err := notify.Watch("./test", c, notify.Create); err != nil {
+					return err
+				}
+
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			})
+
+			g.Go(func() error {
+				for event := range c {
+					select {
+					default:
+						log.Infof("new capture file found! processing %s", event.Path())
+						log.Debugf("notify event %s", event.Path())
+						loginAttempts = parsers.ExtractAttackerLoginAttempt(event.Path())
+						activity = parsers.ExtractAttackerActivity(event.Path())
+						cfg.writer.WriteAttackerActivies(activity)
+						cfg.writer.WriteAttackerLoginAttempts(loginAttempts, geoIP)
+					case <-ctx.Done():
+						return ctx.Err()
+					}
+				}
+				return nil
+			})
+
+			if err := g.Wait(); err != nil {
+				log.Fatal(err)
+			}
 		}
-		cfg.writer.WriteAttackerActivies(activity)
-		cfg.writer.WriteAttackerLoginAttempts(loginAttempts)
 
 	},
 }

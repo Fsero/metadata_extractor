@@ -17,12 +17,6 @@ import (
 	elastic "gopkg.in/olivere/elastic.v5"
 )
 
-var geoIP *geoip.GeoIP
-
-func init() {
-	geoIP = helpers.InitializeGeoIP()
-}
-
 type attackerLoginAttemptDoc struct {
 	ID          string    `json:"id"`
 	Timestamp   time.Time `json:"@timestamp"`
@@ -55,13 +49,12 @@ type ElasticOutputClient struct {
 
 func (e ElasticOutputClient) createAttemptsIndex(indexDate time.Time) {
 	// Create an index
-	log.Info(e.client)
 	indexName := fmt.Sprintf("ssh_login_attempts-%d-%d", indexDate.Year(), indexDate.Month())
 	exists, err := e.client.IndexExists(indexName).Do(context.Background())
 	if err != nil {
 		log.Error(err)
 	}
-	log.Info(exists)
+	log.Debugf("[createAttemptsIndex] index %s exists? %s", indexName, exists)
 
 	if !exists {
 		// Create a new index.
@@ -127,13 +120,12 @@ func (e ElasticOutputClient) createAttemptsIndex(indexDate time.Time) {
 
 func (e ElasticOutputClient) createSSHActivitiesIndexIfnotExist(indexDate time.Time) {
 	// Create an index
-	log.Info(e.client)
 	indexName := fmt.Sprintf("ssh_activities-%d-%d", indexDate.Year(), indexDate.Month())
 	exists, err := e.client.IndexExists(indexName).Do(context.Background())
 	if err != nil {
 		log.Error(err)
 	}
-	log.Info(exists)
+	log.Debugf("[createSSHActivitiesIndexIfnotExist] index %s exists? %s", indexName, exists)
 
 	if !exists {
 		// Create a new index.
@@ -191,7 +183,7 @@ func (e ElasticOutputClient) createSSHActivitiesIndexIfnotExist(indexDate time.T
 }
 
 func (e ElasticOutputClient) WriteAttackerActivies(activities []parsers.AttackerActivity) error {
-	log.Infof("ES activities %s", len(activities))
+	log.Debugf("[WriteAttackerActivies] ES activities %s", len(activities))
 	buf := make([]byte, 32)
 	docsc := make(chan attackerActivityDoc)
 	g, ctx := errgroup.WithContext(context.TODO())
@@ -245,7 +237,7 @@ func (e ElasticOutputClient) WriteAttackerActivies(activities []parsers.Attacker
 			log.Debugf("%10d | %6d req/s | %02d:%02d\r", current, pps, sec/60, sec%60)
 
 			// Enqueue the document
-			log.Info(d)
+			log.Debugf("[WriteAttackerActivies] document to writre %s", d)
 			bulk.Add(elastic.NewBulkIndexRequest().Id(d.ID).Doc(d))
 			if bulk.NumberOfActions() >= e.bulkSize {
 				// Commit
@@ -255,14 +247,13 @@ func (e ElasticOutputClient) WriteAttackerActivies(activities []parsers.Attacker
 				}
 				if res.Errors {
 					// Look up the failed documents with res.Failed(), and e.g. recommit
-					log.Info(res.Items)
+					log.Debugf("Bulk commit failed :%s", res.Items)
 
 					for _, s := range res.Items {
 						for k, v := range s {
-							log.Infof("%s %s", k, v)
+							log.Debugf("Bulk commit failed %s %s", k, v)
 						}
 					}
-					log.Info()
 					return errors.New("bulk commit failed")
 				}
 				// "bulk" is reset after Do, so you can reuse it
@@ -294,12 +285,12 @@ func (e ElasticOutputClient) WriteAttackerActivies(activities []parsers.Attacker
 	dur := time.Since(begin).Seconds()
 	sec := int(dur)
 	pps := int64(float64(total) / dur)
-	fmt.Printf("%10d | %6d req/s | %02d:%02d\n", total, pps, sec/60, sec%60)
+	log.Infof("Writing %10d documents in Elasticsearch | %6d req/s | %02d:%02d\n", total, pps, sec/60, sec%60)
 
 	return nil
 }
 
-func (e ElasticOutputClient) WriteAttackerLoginAttempts(attempts []parsers.AttackerLoginAttempt) error {
+func (e ElasticOutputClient) WriteAttackerLoginAttempts(attempts []parsers.AttackerLoginAttempt, geoIP *geoip.GeoIP) error {
 	buf := make([]byte, 32)
 	docsc := make(chan attackerLoginAttemptDoc)
 	g, ctx := errgroup.WithContext(context.TODO())
@@ -366,7 +357,6 @@ func (e ElasticOutputClient) WriteAttackerLoginAttempts(attempts []parsers.Attac
 			log.Debugf("%10d | %6d req/s | %02d:%02d\r", current, pps, sec/60, sec%60)
 
 			// Enqueue the document
-			log.Info(d)
 			bulk.Add(elastic.NewBulkIndexRequest().Id(d.ID).Doc(d))
 			if bulk.NumberOfActions() >= e.bulkSize {
 				// Commit
@@ -376,14 +366,12 @@ func (e ElasticOutputClient) WriteAttackerLoginAttempts(attempts []parsers.Attac
 				}
 				if res.Errors {
 					// Look up the failed documents with res.Failed(), and e.g. recommit
-					log.Info(res.Items)
 
 					for _, s := range res.Items {
 						for k, v := range s {
-							log.Infof("%s %s", k, v)
+							log.Debugf("%s %s", k, v)
 						}
 					}
-					log.Info()
 					return errors.New("bulk commit failed")
 				}
 				// "bulk" is reset after Do, so you can reuse it
@@ -415,13 +403,13 @@ func (e ElasticOutputClient) WriteAttackerLoginAttempts(attempts []parsers.Attac
 	dur := time.Since(begin).Seconds()
 	sec := int(dur)
 	pps := int64(float64(total) / dur)
-	fmt.Printf("%10d | %6d req/s | %02d:%02d\n", total, pps, sec/60, sec%60)
+	log.Infof("Writing %10d documents in Elasticsearch | %6d req/s | %02d:%02d\n", total, pps, sec/60, sec%60)
 
 	return nil
 }
 
 func (e *ElasticOutputClient) Init() error {
-	log.Info("initialize ES")
+	log.Debug("initialize elasticsearch output")
 	client, err := elastic.NewClient(elastic.SetURL(e.url), elastic.SetSniff(e.sniff))
 	if err != nil {
 		return err
