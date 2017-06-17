@@ -20,6 +20,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"fmt"
+
 	"bitbucket.org/fseros/metadata_ssh_extractor/helpers"
 	"bitbucket.org/fseros/metadata_ssh_extractor/parsers"
 	log "github.com/Sirupsen/logrus"
@@ -35,7 +37,6 @@ var sshCmd = &cobra.Command{
 	Long: `Extracts metadata from sysdig captures of ssh containers. 
 	this process is extremely cpu intensive and fragile, do not try at home.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: Work your own magic here
 		var loginAttempts []parsers.AttackerLoginAttempt
 		var activity []parsers.AttackerActivity
 		var geoIP *geoip.GeoIP
@@ -62,11 +63,13 @@ var sshCmd = &cobra.Command{
 			// Make the channel buffered to ensure no event is dropped. Notify will drop
 			// an event if the receiver is not able to keep up the sending pace.
 
+			path := fmt.Sprintf("%s/%s/%s/", cfg.tracespath, cfg.probe.FQDN, cfg.probe.IPv4)
 			c := make(chan notify.EventInfo, 1)
 			g.Go(func() error {
 				// Set up a watchpoint listening for events within a directory tree rooted
 				// at current working directory. Dispatch remove events to c.
-				if err := notify.Watch("./test", c, notify.Create); err != nil {
+				log.Infof("watching for new files in %s", path)
+				if err := notify.Watch(path, c, notify.Create); err != nil {
 					return err
 				}
 

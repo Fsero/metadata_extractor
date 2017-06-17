@@ -76,6 +76,18 @@ func (e ElasticOutputClient) createAttemptsIndex(indexDate time.Time) {
 						"id": {
 							"type": "string"
 						},
+						"probe_provider": {
+							"type": "string"
+						},
+						"probe_provider_location": {
+							"type": "geo_point"
+						},
+						"probe_name": {
+							"type": "string"
+						},
+						"probe_ip": {
+							"type": "string"
+						},
 						"ip": {
 							"type": "string"
 						},
@@ -143,6 +155,18 @@ func (e ElasticOutputClient) createSSHActivitiesIndexIfnotExist(indexDate time.T
 						"dynamic": "strict",
 						"properties": {
 							"containerid": {
+								"type": "string"
+							},
+							"probe_provider": {
+								"type": "string"
+							},
+							"probe_provider_location": {
+								"type": "geo_point"
+							},
+							"probe_name": {
+								"type": "string"
+							},
+							"probe_ip": {
 								"type": "string"
 							},
 							"id": {

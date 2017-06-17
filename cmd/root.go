@@ -28,13 +28,16 @@ import (
 )
 
 type GlobalConfig struct {
-	cfgFile    string
-	writer     writers.OutputWriter
-	cfgWriters string
-	eshost     string
-	esport     string
-	probeID    string
-	follow     bool
+	cfgFile      string
+	writer       writers.OutputWriter
+	cfgWriters   string
+	eshost       string
+	esport       string
+	probeID      string
+	sinkerAPIURL string
+	follow       bool
+	tracespath   string
+	probe        Probe
 }
 
 var cfg GlobalConfig
@@ -73,7 +76,9 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&cfg.eshost, "elasticsearch_host", "", "host to connect to elasticsearch")
 	RootCmd.PersistentFlags().StringVar(&cfg.esport, "elasticsearch_port", "", "port to connect to elasticsearch")
 	RootCmd.PersistentFlags().StringVarP(&cfg.probeID, "probeid", "i", "", "probe id on sinkers API")
+	RootCmd.PersistentFlags().StringVarP(&cfg.sinkerAPIURL, "sinker_api_url", "s", "http://main01.superprivyhosting.com:38080", "sinker_api_url")
 	RootCmd.PersistentFlags().BoolVarP(&cfg.follow, "follow", "f", false, "follow traces created on fs, needs -i parameter")
+	RootCmd.PersistentFlags().StringVarP(&cfg.tracespath, "tracebasepath", "d", "/var/log/traces", "Where the traces are stored ")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -112,4 +117,9 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+	probe, err := GetProbe(cfg)
+	if err != nil {
+		log.Fatalf("[cmd.root]  Unable to retrieve Probe %s", err)
+	}
+	cfg.probe = *probe
 }
