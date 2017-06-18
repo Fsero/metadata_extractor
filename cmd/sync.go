@@ -12,13 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
-	"bitbucket.org/fseros/metadata_ssh_extractor/cmd"
+	"github.com/Sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
-func main() {
+// sshCmd represents the ssh command
+var fileCmd = &cobra.Command{
+	Use:   "file",
+	Short: "sync files from ssh potted containers",
+	Long:  `creates a directory and start syncing every X mins. do not try at home.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		logrus.Info("Yay! nothing to do")
+		return
+	},
+}
 
-	cmd.Execute()
+func init() {
+	RootCmd.AddCommand(fileCmd)
 }

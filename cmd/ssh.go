@@ -22,9 +22,10 @@ import (
 
 	"fmt"
 
+	"bitbucket.org/fseros/metadata_ssh_extractor/config"
 	"bitbucket.org/fseros/metadata_ssh_extractor/helpers"
 	"bitbucket.org/fseros/metadata_ssh_extractor/parsers"
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/abh/geoip"
 	"github.com/rjeczalik/notify"
 	"github.com/spf13/cobra"
@@ -40,35 +41,38 @@ var sshCmd = &cobra.Command{
 		var loginAttempts []parsers.AttackerLoginAttempt
 		var activity []parsers.AttackerActivity
 		var geoIP *geoip.GeoIP
+
+		var cfg *config.GlobalConfig
+		cfg = &config.Config
 		geoIP = helpers.InitializeGeoIP()
 		if !parsers.Init() {
-			log.Fatal("Unable to initialize ssh parser")
+			logrus.Fatal("Unable to initialize ssh parser")
 		}
-		if !cfg.follow {
+		if !cfg.Follow {
 			for _, f := range args {
 				if _, err := os.Stat(f); os.IsNotExist(err) {
-					log.Debugf(" %s does not exist", f)
+					logrus.Debugf(" %s does not exist", f)
 					continue
 				}
 				loginAttempts = parsers.ExtractAttackerLoginAttempt(f)
 				activity = parsers.ExtractAttackerActivity(f)
-				cfg.writer.WriteAttackerActivies(activity)
-				cfg.writer.WriteAttackerLoginAttempts(loginAttempts, geoIP)
+				cfg.Writer.WriteAttackerActivies(activity, cfg)
+				cfg.Writer.WriteAttackerLoginAttempts(loginAttempts, geoIP, cfg)
 			}
 		} else {
-			if cfg.probeID == "" {
-				log.Fatalf("without a probeID its imposible to follow paths, set a valid probeID with -i")
+			if cfg.ProbeID == "" {
+				logrus.Fatalf("without a probeID its imposible to follow paths, set a valid probeID with -i")
 			}
 			g, ctx := errgroup.WithContext(context.TODO())
 			// Make the channel buffered to ensure no event is dropped. Notify will drop
 			// an event if the receiver is not able to keep up the sending pace.
 
-			path := fmt.Sprintf("%s/%s/%s/", cfg.tracespath, cfg.probe.FQDN, cfg.probe.IPv4)
+			path := fmt.Sprintf("%s/%s/%s/", cfg.Tracespath, cfg.Probe.FQDN, cfg.Probe.IPv4)
 			c := make(chan notify.EventInfo, 1)
 			g.Go(func() error {
 				// Set up a watchpoint listening for events within a directory tree rooted
 				// at current working directory. Dispatch remove events to c.
-				log.Infof("watching for new files in %s", path)
+				logrus.Infof("watching for new files in %s", path)
 				if err := notify.Watch(path, c, notify.Create); err != nil {
 					return err
 				}
@@ -83,12 +87,12 @@ var sshCmd = &cobra.Command{
 				for event := range c {
 					select {
 					default:
-						log.Infof("new capture file found! processing %s", event.Path())
-						log.Debugf("notify event %s", event.Path())
+						logrus.Infof("new capture file found! processing %s", event.Path())
+						logrus.Debugf("notify event %s", event.Path())
 						loginAttempts = parsers.ExtractAttackerLoginAttempt(event.Path())
 						activity = parsers.ExtractAttackerActivity(event.Path())
-						cfg.writer.WriteAttackerActivies(activity)
-						cfg.writer.WriteAttackerLoginAttempts(loginAttempts, geoIP)
+						cfg.Writer.WriteAttackerActivies(activity, cfg)
+						cfg.Writer.WriteAttackerLoginAttempts(loginAttempts, geoIP, cfg)
 					case <-ctx.Done():
 						return ctx.Err()
 					}
@@ -97,7 +101,7 @@ var sshCmd = &cobra.Command{
 			})
 
 			if err := g.Wait(); err != nil {
-				log.Fatal(err)
+				logrus.Fatal(err)
 			}
 		}
 

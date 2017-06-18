@@ -1,4 +1,4 @@
-package cmd
+package config
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 )
 
 // "ProbeID": "kTuoo-GmR9VEFo7C4_f7t2YTkpv22OeWbE1dIg==",
@@ -44,14 +44,14 @@ type Probe struct {
 
 func GetProbe(cfg GlobalConfig) (*Probe, error) {
 
-	probeid := url.QueryEscape(cfg.probeID)
-	url := fmt.Sprintf("%s/v1/probe/%s", cfg.sinkerAPIURL, probeid)
+	probeid := url.QueryEscape(cfg.ProbeID)
+	url := fmt.Sprintf("%s/v1/probe/%s", cfg.SinkerAPIURL, probeid)
 
 	// Build the request
-	log.Infof("[GetProbe] requesting Probe info %s", url)
+	logrus.Infof("[GetProbe] requesting Probe info %s", url)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Fatal("NewRequest: ", err)
+		logrus.Fatal("NewRequest: ", err)
 		return nil, err
 	}
 
@@ -66,7 +66,7 @@ func GetProbe(cfg GlobalConfig) (*Probe, error) {
 	// returns an HTTP response
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal("Do: ", err)
+		logrus.Fatal("Do: ", err)
 		return nil, err
 	}
 
@@ -78,16 +78,16 @@ func GetProbe(cfg GlobalConfig) (*Probe, error) {
 	// Fill the record with the data from the JSON
 	var probe Probe
 	if resp.StatusCode != 200 {
-		log.Fatalf("We were unable to retrieve provider info, request %s answered %s code", url, resp.Status)
+		logrus.Fatalf("We were unable to retrieve provider info, request %s answered %s code", url, resp.Status)
 		return nil, fmt.Errorf("unable to get Probe info from sinkers API")
 	}
 
 	// Use json.Decode for reading streams of JSON data
 	if err := json.NewDecoder(resp.Body).Decode(&probe); err != nil {
-		log.Fatalf("Unable to get Probe info. sinker API is maybe down? error: %s ", err)
+		logrus.Fatalf("Unable to get Probe info. sinker API is maybe down? error: %s ", err)
 	}
 
-	log.Debugf("[cmd.GetProbe] readed probe %+v", probe)
+	logrus.Debugf("[cmd.GetProbe] readed probe %+v", probe)
 
 	return &probe, nil
 

@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 
 	"bitbucket.org/fseros/metadata_ssh_extractor/helpers"
 )
@@ -19,7 +19,7 @@ import (
 func Init() bool {
 	_, err := exec.Command("/usr/bin/sysdig", "-h").Output()
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 		return false
 	}
 	return true
@@ -88,19 +88,19 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 		} else {
 			capture.ContainerID = trace.ContainerId
 		}
-		log.Debugf("[parseTraces] line to parse %s", str)
-		log.Debugf("[parseTraces] original trace %s", trace)
+		logrus.Debugf("[parseTraces] line to parse %s", str)
+		logrus.Debugf("[parseTraces] original trace %s", trace)
 
 		// no password captured yet, so processing it.
 		if capture.Password == "" && passwordInputRegexp.MatchString(str) {
 			fields := passwordInputRegexp.FindStringSubmatch(str)
 			extractPassword(&capture, fields)
-			log.Debugf("[parseTraces] from password %+v", capture)
+			logrus.Debugf("[parseTraces] from password %+v", capture)
 		}
 		if loginAttemptRegexp.MatchString(str) {
 			fields := loginAttemptRegexp.FindStringSubmatch(str)
 			extractLoginAttempt(&capture, fields)
-			log.Debugf("[parseTraces] from login %+v", capture)
+			logrus.Debugf("[parseTraces] from login %+v", capture)
 
 		}
 
@@ -111,11 +111,12 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 			data.Successful = (capture.Success == "success")
 			data.UnixTime = (strconv.FormatInt(trace.EventOutputUnixTime, 10)[0:13])
 			data.ContainerID = capture.ContainerID
-			log.Debugf("[parseTraces] attempt added %+v", data)
+			data.User = capture.User
+			logrus.Debugf("[parseTraces] attempt added %+v", data)
 			LoginAttempts = append(LoginAttempts, data)
 			capture = extraction{}
 		} else {
-			log.Debugf("Attempt not valid! %+v", capture)
+			logrus.Debugf("Attempt not valid! %+v", capture)
 		}
 	}
 	return LoginAttempts
@@ -129,7 +130,7 @@ func ExtractAttackerLoginAttempt(file string) []AttackerLoginAttempt {
 	removedashes := exec.Command("egrep", "-v", "\\-")
 	output, _, err := helpers.Pipeline(sysdig, egrep, removedashes)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 	var traces []Trace
 
@@ -141,15 +142,15 @@ func ExtractAttackerLoginAttempt(file string) []AttackerLoginAttempt {
 			continue
 		}
 		if err := json.Unmarshal([]byte(line), &tr); err != nil {
-			log.Fatal(err)
+			logrus.Fatal(err)
 		}
 		traces = append(traces, tr)
 
 	}
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
-	log.Debugf("num of traces %s", len(traces))
+	logrus.Debugf("num of traces %s", len(traces))
 	sort.Sort(ByUnixTime(traces))
 	LoginAttempts := parseTraces(traces)
 	return LoginAttempts
@@ -189,7 +190,7 @@ func ExtractAttackerActivity(file string) []AttackerActivity {
 
 	output, _, err := helpers.Pipeline(sysdig, egrep)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 	AttackerActivityLog := parseActivities(output)
 	AttackerActivityEntries := make([]AttackerActivity, 0)
@@ -205,9 +206,9 @@ func ExtractAttackerActivity(file string) []AttackerActivity {
 		entry.Datetime = subfields[2]
 		entry.ContainerID = subfields[4]
 		entry.Command = subfields[5]
-		log.Debugf("entry parsed %+v", entry)
+		logrus.Debugf("entry parsed %+v", entry)
 		if validateEntry(entry) {
-			log.Debugf("entry validated")
+			logrus.Debugf("entry validated")
 			var data AttackerActivity
 			data.Activity = entry.Command
 			data.ContainerID = entry.ContainerID

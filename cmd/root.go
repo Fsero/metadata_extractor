@@ -18,29 +18,15 @@ import (
 	"fmt"
 	"os"
 
+	"bitbucket.org/fseros/metadata_ssh_extractor/config"
 	"bitbucket.org/fseros/metadata_ssh_extractor/writers"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
-
-type GlobalConfig struct {
-	cfgFile      string
-	writer       writers.OutputWriter
-	cfgWriters   string
-	eshost       string
-	esport       string
-	probeID      string
-	sinkerAPIURL string
-	follow       bool
-	tracespath   string
-	probe        Probe
-}
-
-var cfg GlobalConfig
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -64,62 +50,113 @@ func Execute() {
 	}
 }
 
-func init() {
-	cobra.OnInitialize(initConfig)
+func loadConfig(cfg *config.GlobalConfig) {
+	cfg.CfgWriters = viper.GetString("output")
+	cfg.EShost = viper.GetString("elasticsearch_host")
+	cfg.ESport = viper.GetString("elasticsearch_port")
+	cfg.ProbeID = viper.GetString("probeid")
+	cfg.SinkerAPIURL = viper.GetString("sinker_api_url")
+	cfg.Follow = viper.GetBool("follow")
+	cfg.Tracespath = viper.GetString("tracespath")
+	cfg.Verbose = viper.GetBool("verbose")
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports Persistent Flags, which, if defined here,
-	// will be global for your application.
-
-	RootCmd.PersistentFlags().StringVarP(&cfg.cfgFile, "config", "c", "", "config file (default is $HOME/.metadata_extractor.yaml)")
-	RootCmd.PersistentFlags().StringVarP(&cfg.cfgWriters, "output", "o", "", "where to output between cli and es")
-	RootCmd.PersistentFlags().StringVar(&cfg.eshost, "elasticsearch_host", "", "host to connect to elasticsearch")
-	RootCmd.PersistentFlags().StringVar(&cfg.esport, "elasticsearch_port", "", "port to connect to elasticsearch")
-	RootCmd.PersistentFlags().StringVarP(&cfg.probeID, "probeid", "i", "", "probe id on sinkers API")
-	RootCmd.PersistentFlags().StringVarP(&cfg.sinkerAPIURL, "sinker_api_url", "s", "http://main01.superprivyhosting.com:38080", "sinker_api_url")
-	RootCmd.PersistentFlags().BoolVarP(&cfg.follow, "follow", "f", false, "follow traces created on fs, needs -i parameter")
-	RootCmd.PersistentFlags().StringVarP(&cfg.tracespath, "tracebasepath", "d", "/var/log/traces", "Where the traces are stored ")
+	logrus.Debugf("[cmd.loadConfig] loaded config: %+v", cfg)
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	// RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	if cfg.CfgWriters == "es" {
+		if !govalidator.IsHost(cfg.EShost) {
+			logrus.Fatal("invalid elasticsearch host")
+		}
+		if !govalidator.IsInt(cfg.ESport) {
+			logrus.Fatal("invalid elasticsearch port")
+		}
+		es := writers.ElasticOutputClient{}
+		cfg.Writer = &es
+		es.SetURL(cfg.EShost, cfg.ESport)
+		es.SetSniff(false)
+		es.SetBulkSize(1)
+		if err := es.Init(); err != nil {
+			logrus.Fatal(err)
+		}
+
+	} else {
+		cfg.Writer = &writers.CommandLineWriter{}
+	}
+	probe, err := config.GetProbe(*cfg)
+	if err != nil {
+		logrus.Fatalf("[cmd.root] Unable to retrieve Probe %s", err)
+	}
+	cfg.Probe = probe
+
+	if cfg.Verbose {
+		logrus.SetFormatter(&logrus.TextFormatter{ForceColors: true})
+		logrus.SetLevel(logrus.DebugLevel)
+	} else {
+		logrus.SetFormatter(&logrus.TextFormatter{ForceColors: true})
+		logrus.SetLevel(logrus.InfoLevel)
+	}
+
+}
+
+func init() {
+
+	cobra.OnInitialize(initConfig)
+
+	var cfg *config.GlobalConfig
+	cfg = &config.Config
+	// Here you will define your flags and configuration settings.
+	// Cobra supports Persistent Flags, which, if defined here,
+	// will be global for your application.
+
+	RootCmd.PersistentFlags().StringVarP(&cfg.CfgFile, "config", "c", "", "config file (default is $PWD/.metadata_extractor.yaml and $HOME/.metadata_extractor.yaml)")
+	RootCmd.PersistentFlags().StringVarP(&cfg.CfgWriters, "output", "o", "", "where to output between cli and es")
+	RootCmd.PersistentFlags().StringVar(&cfg.EShost, "elasticsearch_host", "", "host to connect to elasticsearch")
+	RootCmd.PersistentFlags().StringVar(&cfg.ESport, "elasticsearch_port", "", "port to connect to elasticsearch")
+	RootCmd.PersistentFlags().StringVarP(&cfg.ProbeID, "probeid", "i", "", "probe id on sinkers API")
+	RootCmd.PersistentFlags().StringVarP(&cfg.SinkerAPIURL, "sinker_api_url", "s", "http://main01.superprivyhosting.com:38080", "sinker_api_url")
+	RootCmd.PersistentFlags().BoolVarP(&cfg.Follow, "follow", "f", false, "follow traces created on fs, needs -i parameter")
+	RootCmd.PersistentFlags().StringVarP(&cfg.Tracespath, "tracebasepath", "d", "/var/log/traces", "Where the traces are stored ")
+	RootCmd.PersistentFlags().BoolVarP(&cfg.Verbose, "verbose", "v", false, "gives detailed logging")
+
+	viper.BindPFlag("output", RootCmd.PersistentFlags().Lookup("output"))
+	viper.BindPFlag("elasticsearch_host", RootCmd.PersistentFlags().Lookup("elasticsearch_host"))
+	viper.BindPFlag("elasticsearch_port", RootCmd.PersistentFlags().Lookup("elasticsearch_port"))
+	viper.BindPFlag("probeid", RootCmd.PersistentFlags().Lookup("probeid"))
+	viper.BindPFlag("sinker_api_url", RootCmd.PersistentFlags().Lookup("sinker_api_url"))
+	viper.BindPFlag("follow", RootCmd.PersistentFlags().Lookup("follow"))
+	viper.BindPFlag("tracebasepath", RootCmd.PersistentFlags().Lookup("tracebasepath"))
+	viper.BindPFlag("verbose", RootCmd.PersistentFlags().Lookup("verbose"))
+
+	viper.SetDefault("follow", false)
+	viper.SetDefault("verbose", false)
+
+	viper.SetDefault("tracebasepath", "/var/log/traces")
+	viper.SetDefault("sinker_api_url", "http://main01.superprivyhosting.com:38080")
+
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if cfg.cfgFile != "" { // enable ability to specify config file via flag
-		viper.SetConfigFile(cfg.cfgFile)
-	}
+	var cfg *config.GlobalConfig
+	cfg = &config.Config
 
+	if cfg.CfgFile != "" { // enable ability to specify config file via flag
+		viper.SetConfigFile(cfg.CfgFile)
+	}
+	viper.SetConfigType("yaml")
 	viper.SetConfigName(".metadata_extractor") // name of config file (without extension)
-	viper.AddConfigPath("$HOME")               // adding home directory as first search path
+	viper.AddConfigPath(".")                   // adding current directory as first search path
+	viper.AddConfigPath("$HOME")               // adding current directory as first search path
 	viper.AutomaticEnv()                       // read in environment variables that match
-	if cfg.cfgWriters == "es" {
-		if !govalidator.IsHost(cfg.eshost) {
-			log.Fatal("invalid elasticsearch host")
-		}
-		if !govalidator.IsInt(cfg.esport) {
-			log.Fatal("invalid elasticsearch port")
-		}
-		es := writers.ElasticOutputClient{}
-		cfg.writer = &es
-		es.SetURL(cfg.eshost, cfg.esport)
-		es.SetSniff(false)
-		es.SetBulkSize(1)
-		if err := es.Init(); err != nil {
-			log.Fatal(err)
-		}
 
-	} else {
-		cfg.writer = &writers.CommandLineWriter{}
-	}
 	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	if err := viper.ReadInConfig(); err != nil {
+		logrus.Error(err)
+	} else {
+		logrus.Debugf("[cmd.initConfig] Using config file:", viper.ConfigFileUsed())
 	}
-	probe, err := GetProbe(cfg)
-	if err != nil {
-		log.Fatalf("[cmd.root]  Unable to retrieve Probe %s", err)
-	}
-	cfg.probe = *probe
+	loadConfig(cfg)
+
 }

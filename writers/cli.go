@@ -1,24 +1,25 @@
 package writers
 
 import (
+	"bitbucket.org/fseros/metadata_ssh_extractor/config"
 	"bitbucket.org/fseros/metadata_ssh_extractor/parsers"
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/abh/geoip"
 )
 
 type CommandLineWriter struct{}
 
-func (e CommandLineWriter) WriteAttackerActivies(activities []parsers.AttackerActivity) error {
-	log.Infof("activities %s", len(activities))
+func (e CommandLineWriter) WriteAttackerActivies(activities []parsers.AttackerActivity, cfg *config.GlobalConfig) error {
+	logrus.Infof("activities %s", len(activities))
 	for _, entry := range activities {
-		log.Infof("%+v", entry)
+		logrus.Infof("%+v", entry)
 	}
 	return nil
 }
 
-func (e CommandLineWriter) WriteAttackerLoginAttempts(attempts []parsers.AttackerLoginAttempt, geoIP *geoip.GeoIP) error {
+func (e CommandLineWriter) WriteAttackerLoginAttempts(attempts []parsers.AttackerLoginAttempt, geoIP *geoip.GeoIP, cfg *config.GlobalConfig) error {
 	for _, attempt := range attempts {
-		log.Infof("%+v", attempt)
+		logrus.Infof("%+v", attempt)
 	}
 	return nil
 }
