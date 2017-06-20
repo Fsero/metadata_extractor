@@ -1,0 +1,22 @@
+package: bitbucket.org/fseros/metadata_extractor
+import:
+- package: bitbucket.org/fseros/metadata_extractor
+  subpackages:
+  - cmd
+  - config
+  - helpers
+  - parsers
+  - writers
+- package: github.com/Sirupsen/logrus
+  version: ~1.0.0
+- package: github.com/abh/geoip
+- package: github.com/asaskevich/govalidator
+  version: ~6.0.0
+- package: github.com/rjeczalik/notify
+- package: github.com/spf13/cobra
+- package: github.com/spf13/viper
+- package: golang.org/x/sync
+  subpackages:
+  - errgroup
+- package: gopkg.in/olivere/elastic.v5
+  version: ~5.0.41

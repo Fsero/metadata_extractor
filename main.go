@@ -15,7 +15,7 @@
 package main
 
 import (
-	"bitbucket.org/fseros/metadata_ssh_extractor/cmd"
+	"bitbucket.org/fseros/metadata_extractor/cmd"
 )
 
 func main() {

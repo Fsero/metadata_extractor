@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"bitbucket.org/fseros/metadata_ssh_extractor/config"
-	"bitbucket.org/fseros/metadata_ssh_extractor/helpers"
-	"bitbucket.org/fseros/metadata_ssh_extractor/parsers"
+	"bitbucket.org/fseros/metadata_extractor/config"
+	"bitbucket.org/fseros/metadata_extractor/helpers"
+	"bitbucket.org/fseros/metadata_extractor/parsers"
 	"github.com/Sirupsen/logrus"
 	"github.com/abh/geoip"
 	"golang.org/x/sync/errgroup"

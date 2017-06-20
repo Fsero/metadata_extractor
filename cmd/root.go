@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"os"
 
-	"bitbucket.org/fseros/metadata_ssh_extractor/config"
-	"bitbucket.org/fseros/metadata_ssh_extractor/writers"
+	"bitbucket.org/fseros/metadata_extractor/config"
+	"bitbucket.org/fseros/metadata_extractor/writers"
 
 	"github.com/Sirupsen/logrus"
 

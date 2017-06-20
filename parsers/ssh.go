@@ -13,7 +13,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 
-	"bitbucket.org/fseros/metadata_ssh_extractor/helpers"
+	"bitbucket.org/fseros/metadata_extractor/helpers"
 )
 
 func Init() bool {

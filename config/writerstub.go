@@ -1,7 +1,7 @@
 package config
 
 import (
-	"bitbucket.org/fseros/metadata_ssh_extractor/parsers"
+	"bitbucket.org/fseros/metadata_extractor/parsers"
 	"github.com/abh/geoip"
 )
 
