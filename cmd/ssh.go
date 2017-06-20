@@ -101,7 +101,7 @@ var sshCmd = &cobra.Command{
 			})
 
 			if err := g.Wait(); err != nil {
-				logrus.Fatal(err)
+				logrus.Fatalf("[cmd.sshCmd] unexpected error while processing ssh %s", err)
 			}
 		}
 

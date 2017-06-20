@@ -78,7 +78,7 @@ func loadConfig(cfg *config.GlobalConfig) {
 		es.SetSniff(false)
 		es.SetBulkSize(1)
 		if err := es.Init(); err != nil {
-			logrus.Fatal(err)
+			logrus.Fatalf("[cmd.root] Unable to initialize ES writer %s", err)
 		}
 
 	} else {

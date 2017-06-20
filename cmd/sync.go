@@ -58,7 +58,7 @@ var fileCmd = &cobra.Command{
 					stdout, stderr, err := helpers.Pipeline(rsync)
 					logrus.Debugf("OUT: %s , ERR: %s", stdout, stderr)
 					if err != nil {
-						logrus.Fatal(err)
+						logrus.Fatalf(" Error when tried to launch rsync %s", err)
 					}
 				case <-ctx.Done():
 					return ctx.Err()
@@ -66,7 +66,7 @@ var fileCmd = &cobra.Command{
 			}
 		})
 		if err := g.Wait(); err != nil {
-			logrus.Fatal(err)
+			logrus.Fatalf("Unexpected error while file sync %s ", err)
 		}
 	},
 }

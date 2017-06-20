@@ -1,7 +1,11 @@
 FROM library/golang:1.8-stretch
-
+USER root
 RUN apt-get update
-RUN apt-get install -y libgeoip1 geoip-database geoip-database-extra libgeoip-dev sqlite3 sqlite3
+RUN apt-get install -y gnupg
+RUN curl -s https://s3.amazonaws.com/download.draios.com/DRAIOS-GPG-KEY.public | apt-key add -
+RUN curl -s -o /etc/apt/sources.list.d/draios.list http://download.draios.com/stable/deb/draios.list
+RUN apt-get update
+RUN apt-get install -y libgeoip1 geoip-database geoip-database-extra libgeoip-dev sqlite3 sqlite3 sysdig
 
 # Godep for vendoring
 RUN curl https://glide.sh/get | sh

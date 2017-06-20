@@ -19,7 +19,7 @@ import (
 func Init() bool {
 	_, err := exec.Command("/usr/bin/sysdig", "-h").Output()
 	if err != nil {
-		logrus.Fatal(err)
+		logrus.Fatalf("Unable to initialize ssh parsers %s", err)
 		return false
 	}
 	return true
@@ -130,7 +130,7 @@ func ExtractAttackerLoginAttempt(file string) []AttackerLoginAttempt {
 	removedashes := exec.Command("egrep", "-v", "\\-")
 	output, _, err := helpers.Pipeline(sysdig, egrep, removedashes)
 	if err != nil {
-		logrus.Fatal(err)
+		logrus.Fatalf("[ExtractAttackerLoginAttempt] Unable to launch sysdig %s", err)
 	}
 	var traces []Trace
 
@@ -141,14 +141,15 @@ func ExtractAttackerLoginAttempt(file string) []AttackerLoginAttempt {
 		if len(line) == 0 {
 			continue
 		}
+		logrus.Debugf("[ExtractAttackerLoginAttempt] readed \n %s", line)
 		if err := json.Unmarshal([]byte(line), &tr); err != nil {
-			logrus.Fatal(err)
+			logrus.Fatalf("[ExtractAttackerLoginAttempt] Unable to get JSON %s ", err)
 		}
 		traces = append(traces, tr)
 
 	}
 	if err := scanner.Err(); err != nil {
-		logrus.Fatal(err)
+		logrus.Fatalf("[ExtractAttackerLoginAttempt] Unable to parse trace %s", err)
 	}
 	logrus.Debugf("num of traces %s", len(traces))
 	sort.Sort(ByUnixTime(traces))
