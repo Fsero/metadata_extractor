@@ -17,6 +17,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os/exec"
 	"time"
 
@@ -26,6 +27,8 @@ import (
 	"bitbucket.org/fseros/metadata_extractor/helpers"
 
 	"os"
+
+	"encoding/base64"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -47,12 +50,43 @@ var fileCmd = &cobra.Command{
 		if err != nil {
 			logrus.Fatalf("[cmd.fileCmd] Cannot create path %s", err)
 		}
+		_, err = exec.Command("/usr/bin/rsync", "-h").Output()
+		if err != nil {
+			logrus.Fatalf("Unable to sync cant find rsync in path %s", err)
+		}
+		if cfg.Probe.SSHprivatekey == "" && cfg.Probe.SSHprivatekey == "" {
+			logrus.Fatalf("We need a SSH Key for sync :(")
+		}
+		err = os.Mkdir("/root/.ssh", 0700)
+		logrus.Debug("[cmd.fileCmd] created dir /root/.ssh")
+
+		if err != nil {
+			logrus.Fatalf("[cmd.fileCmd] failed creating ssh folder %s", err)
+		}
+		var b []byte
+		b, err = base64.URLEncoding.DecodeString(cfg.Probe.SSHprivatekey)
+		if err != nil {
+			logrus.Fatalf("[cmd.fileCmd] Unable to decode SSH private key :( %s", err)
+		}
+		logrus.Debug("[cmd.fileCmd] writed /root/.ssh/id_rsa")
+		err = ioutil.WriteFile("/root/.ssh/id_rsa", b, 0400)
+		if err != nil {
+			logrus.Fatalf("[cmd.fileCmd] Unable to write SSH private key :( %s", err)
+		}
+		b, err = base64.URLEncoding.DecodeString(cfg.Probe.SSHpublickey)
+		if err != nil {
+			logrus.Fatalf("[cmd.fileCmd] Unable to decode SSH public key :( %s", err)
+		}
+		err = ioutil.WriteFile("/root/.ssh/id_rsa.pub", b, 0400)
+		if err != nil {
+			logrus.Fatalf("[cmd.fileCmd] Unable to write SSH public key :( %s", err)
+		}
+
 		g, ctx := errgroup.WithContext(context.TODO())
 		g.Go(func() error {
 			for {
 				select {
 				case <-tickChan:
-					fmt.Println("Ticker ticked")
 					rsync := exec.Command("rsync", "-avzh", "-e", fmt.Sprintf("'ssh -p 30009 %s:%s*'", cfg.Probe.FQDN, cfg.Probe.FQDN), path)
 					logrus.Debug(rsync)
 					stdout, stderr, err := helpers.Pipeline(rsync)
