@@ -77,9 +77,14 @@ var fileCmd = &cobra.Command{
 		if err != nil {
 			logrus.Fatalf("[cmd.fileCmd] Unable to decode SSH public key :( %s", err)
 		}
+
 		err = ioutil.WriteFile("/root/.ssh/id_rsa.pub", b, 0400)
 		if err != nil {
 			logrus.Fatalf("[cmd.fileCmd] Unable to write SSH public key :( %s", err)
+		}
+		err = ioutil.WriteFile("/root/.ssh/config", []byte("Host *\nUserKnownHostsFile /dev/null\nStrictHostKeyChecking no\n"), 0400)
+		if err != nil {
+			logrus.Fatalf("[cmd.fileCmd] Unable to write SSH config :( %s", err)
 		}
 
 		g, ctx := errgroup.WithContext(context.TODO())
@@ -87,10 +92,10 @@ var fileCmd = &cobra.Command{
 			for {
 				select {
 				case <-tickChan:
-					rsync := exec.Command("rsync", "-avzh", "-e", fmt.Sprintf("'ssh -p 30009 %s:%s*'", cfg.Probe.FQDN, cfg.Probe.FQDN), path)
+					rsync := exec.Command("rsync", "-avzh", "-e", `"`, "ssh", "-p", "30009", "-l", "file", `"`, cfg.Probe.FQDN, fmt.Sprintf(`:%s*`, cfg.Probe.FQDN), path)
 					logrus.Debug(rsync)
 					stdout, stderr, err := helpers.Pipeline(rsync)
-					logrus.Debugf("OUT: %s , ERR: %s", stdout, stderr)
+					logrus.Debugf("OUT: %s, ERR: %s", stdout, stderr)
 					if err != nil {
 						logrus.Fatalf(" Error when tried to launch rsync %s", err)
 					}
