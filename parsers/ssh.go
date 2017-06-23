@@ -128,9 +128,21 @@ func ExtractAttackerLoginAttempt(file string) []AttackerLoginAttempt {
 	sysdig := exec.Command("/usr/bin/sysdig", "-pc", "-j", "-F", "-A", "-r", file, "container.id!=host", "and", "fd.num=4", "and", "evt.is_io_write=true", "and", "evt.dir", "=", "'<'", "and", "proc.name=sshd")
 	egrep := exec.Command("egrep", "-B1", "PAM:")
 	removedashes := exec.Command("egrep", "-v", "\\-")
-	output, _, err := helpers.Pipeline(sysdig, egrep, removedashes)
+	output, stderr, err := helpers.Pipeline(sysdig, egrep, removedashes)
+	logrus.Debug(sysdig)
+	logrus.Debug(egrep)
+	logrus.Debugf("STDERR: %s", stderr)
+
 	if err != nil {
-		logrus.Fatalf("[ExtractAttackerLoginAttempt] Unable to launch sysdig %s", err)
+		// if stderr is not empty, then something nasty happened if not is just an empty file
+		if len(stderr) > 0 {
+			s := string(stderr[:])
+			if strings.Contains(s, "Is the file truncated?") {
+				logrus.Warningf("Trace [parsers.ExtractAttackerLoginAttempt] %s is truncated or corrupted, moving on", file)
+			} else {
+				logrus.Fatalf("[ExtractAttackerLoginAttempt] Unable to launch sysdig %s", err)
+			}
+		}
 	}
 	var traces []Trace
 
@@ -189,9 +201,17 @@ func ExtractAttackerActivity(file string) []AttackerActivity {
 	sysdig := exec.Command("/usr/bin/sysdig", "-pc", "-c", "spy_users", "-r", file, "container.id!=host")
 	egrep := exec.Command("egrep", "-v", `sshd.*R`)
 
-	output, _, err := helpers.Pipeline(sysdig, egrep)
+	output, stderr, err := helpers.Pipeline(sysdig, egrep)
 	if err != nil {
-		logrus.Fatal(err)
+		// if stderr is not empty, then something nasty happened if not is just an empty file
+		if len(stderr) > 0 {
+			s := string(stderr[:])
+			if strings.Contains(s, "Is the file truncated?") {
+				logrus.Warningf("Trace [parsers.ExtractAttackerActivity] %s is truncated or corrupted, moving on", file)
+			} else {
+				logrus.Fatalf("[ExtractAttackerActivity] Unable to launch sysdig %s", err)
+			}
+		}
 	}
 	AttackerActivityLog := parseActivities(output)
 	AttackerActivityEntries := make([]AttackerActivity, 0)

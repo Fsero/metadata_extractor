@@ -67,7 +67,7 @@ var sshCmd = &cobra.Command{
 			// Make the channel buffered to ensure no event is dropped. Notify will drop
 			// an event if the receiver is not able to keep up the sending pace.
 
-			path := fmt.Sprintf("%s/%s/%s/", cfg.Tracespath, cfg.Probe.FQDN, cfg.Probe.IPv4)
+			path := fmt.Sprintf("%s/%s/%s/", cfg.Probe.Tracespath, cfg.Probe.FQDN, cfg.Probe.IPv4)
 			c := make(chan notify.EventInfo, 1)
 			g.Go(func() error {
 				// Set up a watchpoint listening for events within a directory tree rooted

@@ -23,5 +23,5 @@ ADD . $APP_DIR
 RUN cd $APP_DIR && CGO_ENABLED=0 /go/bin/glide install
 RUN cd $APP_DIR && go build
 WORKDIR $APP_DIR
-
+VOLUME /var/log/traces
 #VOLUME $GOPATH/src/bitbucket.org/fseros/metadata_extractor/.metadata_extractor.yaml

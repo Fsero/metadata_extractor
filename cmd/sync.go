@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os/exec"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -61,7 +62,7 @@ var fileCmd = &cobra.Command{
 		logrus.Debug("[cmd.fileCmd] created dir /root/.ssh")
 
 		if err != nil {
-			logrus.Fatalf("[cmd.fileCmd] failed creating ssh folder %s", err)
+			logrus.Warningf("[cmd.fileCmd] ssh folder already exists %s", err)
 		}
 		var b []byte
 		b, err = base64.URLEncoding.DecodeString(cfg.Probe.SSHprivatekey)
@@ -82,7 +83,8 @@ var fileCmd = &cobra.Command{
 		if err != nil {
 			logrus.Fatalf("[cmd.fileCmd] Unable to write SSH public key :( %s", err)
 		}
-		err = ioutil.WriteFile("/root/.ssh/config", []byte("Host *\nUserKnownHostsFile /dev/null\nStrictHostKeyChecking no\n"), 0400)
+		sshConfig := fmt.Sprintf("Host %s\nUserKnownHostsFile /dev/null\nStrictHostKeyChecking no\nPort %d", cfg.Probe.FQDN, 30009)
+		err = ioutil.WriteFile("/root/.ssh/config", []byte(sshConfig), 0400)
 		if err != nil {
 			logrus.Fatalf("[cmd.fileCmd] Unable to write SSH config :( %s", err)
 		}
@@ -92,10 +94,13 @@ var fileCmd = &cobra.Command{
 			for {
 				select {
 				case <-tickChan:
-					rsync := exec.Command("rsync", "-avzh", "-e", `"`, "ssh", "-p", "30009", "-l", "file", `"`, cfg.Probe.FQDN, fmt.Sprintf(`:%s*`, cfg.Probe.FQDN), path)
-					logrus.Debug(rsync)
+					args := append([]string{}, `--bwlimit=1024`, `-avzh`, fmt.Sprintf(`file@%s:%s*`, cfg.Probe.FQDN, cfg.Probe.FQDN), fmt.Sprintf(`%s`, path))
+					logrus.Debugf(strings.Join(args[:], " "))
+
+					rsync := exec.Command("/usr/bin/rsync", args...)
+					logrus.Debugf("CMD %s ARGS %s ENV %s", rsync.Process, rsync.Args, rsync.Env)
 					stdout, stderr, err := helpers.Pipeline(rsync)
-					logrus.Debugf("OUT: %s, ERR: %s", stdout, stderr)
+					logrus.Debugf("STDOUT: %s, STDERR: %s, ", stdout, stderr)
 					if err != nil {
 						logrus.Fatalf(" Error when tried to launch rsync %s", err)
 					}
