@@ -19,6 +19,7 @@ RUN mkdir -p $APP_DIR
 # Set the entrypoint
 #ENTRYPOINT (cd $APP_DIR && ./metadata_extractor)
 ADD . $APP_DIR
+
 # Compile the binary and statically link
 RUN cd $APP_DIR && CGO_ENABLED=0 /go/bin/glide install
 RUN cd $APP_DIR && go build

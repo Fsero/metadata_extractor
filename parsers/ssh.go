@@ -82,11 +82,11 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 	var capture extraction
 	for _, trace := range traces {
 		str := strings.Replace(trace.EventInfo, "\n", "", -1)
-		if capture.ContainerID != "" && capture.ContainerID != trace.ContainerId {
-			capture.ContainerID = trace.ContainerId
+		if capture.ContainerID != "" && capture.ContainerID != trace.ContainerID {
+			capture.ContainerID = trace.ContainerID
 			capture = extraction{}
 		} else {
-			capture.ContainerID = trace.ContainerId
+			capture.ContainerID = trace.ContainerID
 		}
 		logrus.Debugf("[parseTraces] line to parse %s", str)
 		logrus.Debugf("[parseTraces] original trace %s", trace)
@@ -137,11 +137,12 @@ func ExtractAttackerLoginAttempt(file string) []AttackerLoginAttempt {
 		// if stderr is not empty, then something nasty happened if not is just an empty file
 		if len(stderr) > 0 {
 			s := string(stderr[:])
-			if strings.Contains(s, "Is the file truncated?") {
-				logrus.Warningf("Trace [parsers.ExtractAttackerLoginAttempt] %s is truncated or corrupted, moving on", file)
-			} else {
-				logrus.Fatalf("[ExtractAttackerLoginAttempt] Unable to launch sysdig %s", err)
+			if strings.Contains(s, "Is the file truncated?") || strings.Contains(s, "error reading from file") {
+				logrus.Warningf("[parsers.ExtractAttackerLoginAttempt] Trace %s is truncated or corrupted, moving on", file)
+				return nil
 			}
+			logrus.Fatalf("[ExtractAttackerLoginAttempt] Unable to launch sysdig %s", err)
+
 		}
 	}
 	var traces []Trace
@@ -155,7 +156,9 @@ func ExtractAttackerLoginAttempt(file string) []AttackerLoginAttempt {
 		}
 		logrus.Debugf("[ExtractAttackerLoginAttempt] readed \n %s", line)
 		if err := json.Unmarshal([]byte(line), &tr); err != nil {
-			logrus.Fatalf("[ExtractAttackerLoginAttempt] Unable to get JSON %s ", err)
+			logrus.Debugf("[ExtractAttackerLoginAttempt] Unable to get JSON %s ", err)
+			logrus.Debugf("[ExtractAttackerLoginAttempt] Unable to parse trace from %s", line)
+			continue
 		}
 		traces = append(traces, tr)
 
@@ -206,11 +209,11 @@ func ExtractAttackerActivity(file string) []AttackerActivity {
 		// if stderr is not empty, then something nasty happened if not is just an empty file
 		if len(stderr) > 0 {
 			s := string(stderr[:])
-			if strings.Contains(s, "Is the file truncated?") {
-				logrus.Warningf("Trace [parsers.ExtractAttackerActivity] %s is truncated or corrupted, moving on", file)
-			} else {
-				logrus.Fatalf("[ExtractAttackerActivity] Unable to launch sysdig %s", err)
+			if strings.Contains(s, "Is the file truncated?") || strings.Contains(s, "error reading from file") {
+				logrus.Warningf("[parsers.ExtractAttackerActivity] Trace %s is truncated or corrupted, moving on", file)
+				return nil
 			}
+			logrus.Fatalf("[ExtractAttackerActivity] Unable to launch sysdig %s", err)
 		}
 	}
 	AttackerActivityLog := parseActivities(output)

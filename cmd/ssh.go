@@ -22,6 +22,8 @@ import (
 
 	"fmt"
 
+	"strings"
+
 	"bitbucket.org/fseros/metadata_extractor/config"
 	"bitbucket.org/fseros/metadata_extractor/helpers"
 	"bitbucket.org/fseros/metadata_extractor/parsers"
@@ -87,6 +89,10 @@ var sshCmd = &cobra.Command{
 				for event := range c {
 					select {
 					default:
+						if strings.Contains(event.Path(), fmt.Sprintf(".%s", cfg.Probe.FQDN)) {
+							logrus.Debugf("partial file %s found skipping", event.Path())
+							continue
+						}
 						logrus.Infof("new capture file found! processing %s", event.Path())
 						logrus.Debugf("notify event %s", event.Path())
 						loginAttempts = parsers.ExtractAttackerLoginAttempt(event.Path())

@@ -1,9 +1,9 @@
 package parsers
 
 type Trace struct {
-	ContainerId         string `json:"container.id",omitempty`
+	ContainerID         string `json:"container.id",omitempty`
 	ContainerName       string `json:"container.name",omitempty`
-	EventCpu            int    `json:"evt.cpu"`
+	EventCPU            int    `json:"evt.cpu"`
 	EventDir            string `json:"evt.dir"`
 	EventInfo           string `json:"evt.info"`
 	EventNumber         int    `json:"evt.num"`
