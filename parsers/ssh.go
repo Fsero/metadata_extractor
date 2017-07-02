@@ -132,17 +132,13 @@ func ExtractAttackerLoginAttempt(file string) []AttackerLoginAttempt {
 	logrus.Debug(sysdig)
 	logrus.Debug(egrep)
 	logrus.Debugf("STDERR: %s", stderr)
-
 	if err != nil {
 		// if stderr is not empty, then something nasty happened if not is just an empty file
 		if len(stderr) > 0 {
 			s := string(stderr[:])
-			if strings.Contains(s, "Is the file truncated?") || strings.Contains(s, "error reading from file") {
-				logrus.Warningf("[parsers.ExtractAttackerLoginAttempt] Trace %s is truncated or corrupted, moving on", file)
-				return nil
+			if !isTraceFileOk(s, file) {
+				logrus.Fatalf("[ExtractAttackerLoginAttempt] Unable to launch sysdig %s", err)
 			}
-			logrus.Fatalf("[ExtractAttackerLoginAttempt] Unable to launch sysdig %s", err)
-
 		}
 	}
 	var traces []Trace
