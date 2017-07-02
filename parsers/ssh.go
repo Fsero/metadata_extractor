@@ -133,12 +133,9 @@ func ExtractAttackerLoginAttempt(file string) []AttackerLoginAttempt {
 	logrus.Debug(egrep)
 	logrus.Debugf("STDERR: %s", stderr)
 	if err != nil {
-		// if stderr is not empty, then something nasty happened if not is just an empty file
-		if len(stderr) > 0 {
-			s := string(stderr[:])
-			if !isTraceFileOk(s, file) {
-				logrus.Fatalf("[ExtractAttackerLoginAttempt] Unable to launch sysdig %s", err)
-			}
+		if checkSysdigFailure(output, stderr, file) {
+			logrus.Fatalf("[ExtractAttackerActivity] Unable to launch sysdig %s", err)
+
 		}
 	}
 	var traces []Trace
@@ -197,17 +194,32 @@ func parseActivities(lines []byte) []string {
 
 func isTraceFileOk(output, file string) bool {
 	var isOk bool
-	switch isOk {
-	case strings.Contains(output, "Is the file truncated?"):
+	if strings.Contains(output, "Is the file truncated?") {
 		isOk = true
 		logrus.Debugf("looks like file is not complete, moving on we will get another event when is complete")
-	case strings.Contains(output, "error reading from file"):
-	case strings.Contains(output, "unexpected end of file"):
+	} else if strings.Contains(output, "error reading from file") || strings.Contains(output, "unexpected end of file") {
+		logrus.Debugf("looks like file is wrong, refusing to continue")
 		isOk = false
-	default:
+	} else {
+		logrus.Debugf("looks like file is fine, why are we here?")
 		isOk = true
 	}
 	return isOk
+}
+
+func checkSysdigFailure(stdout, stderr []byte, file string) bool {
+	sErr := string(stderr[:])
+	sOut := string(stdout[:])
+	if !isTraceFileOk(sErr, file) {
+		logrus.Debugf("STDERR: %s", sErr)
+		logrus.Debugf("[checkSysdigFailure] unable to read trace %s refusing to continue", file)
+		return true
+	} else if !isTraceFileOk(sOut, file) {
+		logrus.Debugf("STDOUT: %s", sOut)
+		logrus.Debugf("[checkSysdigFailure] unable to read trace %s refusing to continue", file)
+		return true
+	}
+	return false
 }
 
 func ExtractAttackerActivity(file string) []AttackerActivity {
@@ -218,13 +230,11 @@ func ExtractAttackerActivity(file string) []AttackerActivity {
 
 	output, stderr, err := helpers.Pipeline(sysdig, egrep)
 	if err != nil {
-		// if stderr is not empty, then something nasty happened if not is just an empty file
-		if len(stderr) > 0 {
-			s := string(stderr[:])
-			if !isTraceFileOk(s, file) {
-				logrus.Fatalf("[ExtractAttackerActivity] Unable to launch sysdig %s", err)
-			}
+		if checkSysdigFailure(output, stderr, file) {
+			logrus.Fatalf("[ExtractAttackerActivity] Unable to launch sysdig %s", err)
+
 		}
+		// if stderr is not empty, then something nasty happened if not is just an empty file
 	}
 	AttackerActivityLog := parseActivities(output)
 	AttackerActivityEntries := make([]AttackerActivity, 0)
