@@ -24,6 +24,8 @@ import (
 
 	"strings"
 
+	"time"
+
 	"bitbucket.org/fseros/metadata_extractor/config"
 	"bitbucket.org/fseros/metadata_extractor/helpers"
 	"bitbucket.org/fseros/metadata_extractor/parsers"
@@ -95,6 +97,9 @@ var sshCmd = &cobra.Command{
 						}
 						logrus.Infof("new capture file found! processing %s", event.Path())
 						logrus.Debugf("notify event %s", event.Path())
+						// sometimes we receive the notification before the file has been written really due
+						// to be in the cache. so we wait here one second to give time to hdd for flushing.
+						time.Sleep(1 * time.Second)
 						loginAttempts = parsers.ExtractAttackerLoginAttempt(event.Path())
 						activity = parsers.ExtractAttackerActivity(event.Path())
 						cfg.Writer.WriteAttackerActivies(activity, cfg)

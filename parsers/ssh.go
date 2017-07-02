@@ -198,6 +198,20 @@ func parseActivities(lines []byte) []string {
 	}
 	return AttackerActivityLog
 }
+
+func isTraceFileOk(output, file string) bool {
+	var isOk bool
+	switch isOk {
+	case strings.Contains(output, "Is the file truncated?"):
+	case strings.Contains(output, "error reading from file"):
+	case strings.Contains(output, "unexpected end of file"):
+		isOk = false
+	default:
+		isOk = true
+	}
+	return isOk
+}
+
 func ExtractAttackerActivity(file string) []AttackerActivity {
 
 	//sysdig -pc -r test/srv02.superprivyhosting.com.2017-05-31-06-54.part2 -c spy_users '100 disable_color' container.id != host | grep -v 'sshd -R'
@@ -209,11 +223,9 @@ func ExtractAttackerActivity(file string) []AttackerActivity {
 		// if stderr is not empty, then something nasty happened if not is just an empty file
 		if len(stderr) > 0 {
 			s := string(stderr[:])
-			if strings.Contains(s, "Is the file truncated?") || strings.Contains(s, "error reading from file") {
-				logrus.Warningf("[parsers.ExtractAttackerActivity] Trace %s is truncated or corrupted, moving on", file)
-				return nil
+			if !isTraceFileOk(s, file) {
+				logrus.Fatalf("[ExtractAttackerActivity] Unable to launch sysdig %s", err)
 			}
-			logrus.Fatalf("[ExtractAttackerActivity] Unable to launch sysdig %s", err)
 		}
 	}
 	AttackerActivityLog := parseActivities(output)
