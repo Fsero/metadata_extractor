@@ -203,6 +203,8 @@ func isTraceFileOk(output, file string) bool {
 	var isOk bool
 	switch isOk {
 	case strings.Contains(output, "Is the file truncated?"):
+		isOk = true
+		logrus.Debugf("looks like file is not complete, moving on we will get another event when is complete")
 	case strings.Contains(output, "error reading from file"):
 	case strings.Contains(output, "unexpected end of file"):
 		isOk = false
