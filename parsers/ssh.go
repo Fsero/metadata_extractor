@@ -195,8 +195,8 @@ func parseActivities(lines []byte) []string {
 func isTraceFileOk(output, file string) bool {
 	var isOk bool
 	if strings.Contains(output, "Is the file truncated?") {
-		isOk = true
-		logrus.Debugf("looks like file is not complete, moving on we will get another event when is complete")
+		isOk = false
+		logrus.Debugf("looks like file is not complete, refusing to continue")
 	} else if strings.Contains(output, "error reading from file") || strings.Contains(output, "unexpected end of file") {
 		logrus.Debugf("looks like file is wrong, refusing to continue")
 		isOk = false
