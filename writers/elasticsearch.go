@@ -359,14 +359,17 @@ func (e ElasticOutputClient) WriteAttackerLoginAttempts(attempts []parsers.Attac
 		defer close(docsc)
 
 		for _, entry := range attempts {
-
+			logrus.Debugf("[WriteAttackerLoginAttempts] %+v", entry)
 			_, err := rand.Read(buf)
 			if err != nil {
+				logrus.Fatalf("[WriteAttackerLoginAttempts:elasticsearch] cannot ger random data to generate ES ID! %s", err)
 				return err
 			}
 			id := base64.URLEncoding.EncodeToString(buf)
+
 			date, err := helpers.ParseUnixTimestamp(entry.UnixTime)
 			if err != nil {
+				logrus.Fatalf("[WriteAttackerLoginAttempts:elasticsearch] Invalid UnixTime! %s", err)
 				return err
 			}
 

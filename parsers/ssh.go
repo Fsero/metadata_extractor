@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
@@ -108,12 +109,21 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 	LoginAttempts = make([]AttackerLoginAttempt, 0)
 
 	for k := 0; k < len(keys); k += 2 {
-
-		trace0 := m[keys[k]]
-		trace1 := m[keys[k+1]]
+		var trace0, trace1 []Trace
+		trace0 = m[keys[k]]
 		logrus.Debugf("%d %+v\n", keys[k], m[keys[k]])
-		if len(trace0) <= 0 || len(trace1) <= 0 {
+		if k+1 < len(keys) {
+			trace1 = m[keys[k+1]]
+			logrus.Debugf("%d %+v\n", keys[k+1], m[keys[k+1]])
+		}
+
+		switch {
+		case len(trace0) <= 0 && len(trace1) <= 0:
 			logrus.Fatalf("[parseTraces] invalid block, something nasty happened")
+
+		case len(trace0) <= 0 && len(trace1) > 0:
+			trace0, trace1 = trace1, trace0
+			logrus.Debugf("[parseTraces] swapping blocks, something weird happened")
 		}
 
 		for i := range trace0 {
@@ -140,6 +150,7 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 				str = strings.Replace(elem1.EventInfo, "\n", "", -1)
 				fields = loginAttemptRegexp.FindStringSubmatch(str)
 				l = extractLoginAttempt(fields)
+				l.UnixTime = (strconv.FormatInt(elem1.EventOutputUnixTime, 10)[0:13])
 				logrus.Debug("elem0 == pass and elem1 == login")
 
 			case matchesRegexpTrace(elem1, passwordInputRegexp) && matchesRegexpTrace(elem0, loginAttemptRegexp):
@@ -149,7 +160,7 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 				str = strings.Replace(elem0.EventInfo, "\n", "", -1)
 				fields = loginAttemptRegexp.FindStringSubmatch(str)
 				l = extractLoginAttempt(fields)
-
+				l.UnixTime = (strconv.FormatInt(elem0.EventOutputUnixTime, 10)[0:13])
 				logrus.Debug("elem1 == pass and elem0 == login")
 
 			case matchesRegexpTrace(elem0, passwordInputRegexp) && matchesRegexpTrace(elem1, passwordInputRegexp):
@@ -167,6 +178,7 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 						str := strings.Replace(elem1.EventInfo, "\n", "", -1)
 						fields := loginAttemptRegexp.FindStringSubmatch(str)
 						l = extractLoginAttempt(fields)
+						l.UnixTime = (strconv.FormatInt(elem1.EventOutputUnixTime, 10)[0:13])
 						p.Password = `'NOTFOUND'`
 						logrus.Debugf("[parseTraces] not password found :-(")
 
@@ -178,6 +190,7 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 						str := strings.Replace(elem0.EventInfo, "\n", "", -1)
 						fields := loginAttemptRegexp.FindStringSubmatch(str)
 						l = extractLoginAttempt(fields)
+						l.UnixTime = (strconv.FormatInt(elem0.EventOutputUnixTime, 10)[0:13])
 						p.Password = `'NOTFOUND'`
 						logrus.Debugf("[parseTraces] not password found :-(")
 
@@ -197,6 +210,7 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 			capture.User = l.User
 
 			if validateCapture(capture) {
+				logrus.Debugf("[parseTraces] adding capture %+v", capture)
 				LoginAttempts = append(LoginAttempts, capture)
 			}
 
@@ -244,7 +258,9 @@ func ExtractAttackerLoginAttempt(file string) []AttackerLoginAttempt {
 		case strings.Contains(tr.EventInfo, "ssh:notty"):
 			logrus.Debugf("[extractAttackerLoginAttempt] invalid trace, discarding it")
 			continue
-
+		case loginAttemptRegexp.MatchString(tr.EventInfo) && !strings.Contains(tr.EventInfo, "PAM:authentication"):
+			logrus.Debugf("[extractAttackerLoginAttempt] we are only interested on auth events from PAM")
+			continue
 		default:
 			traces = append(traces, tr)
 		}
