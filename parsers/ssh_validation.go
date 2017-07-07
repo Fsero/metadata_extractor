@@ -21,18 +21,13 @@ func validateEntry(entry activitylog) bool {
 	return true
 }
 
-func validateCapture(capture extraction) bool {
+func validateCapture(capture AttackerLoginAttempt) bool {
 	if !govalidator.IsIP(capture.IP) {
 		logrus.Debugf("[validateCapture] invalid ip %s", capture.IP)
 		return false
 	}
 	if !govalidator.IsASCII(capture.User) {
 		logrus.Debugf("[validateCapture] invalid user %s", capture.User)
-		return false
-	}
-	if !((capture.Success != "") && (capture.Success == "success" || capture.Success == "failed")) {
-
-		logrus.Debugf("[validateCapture] invalid success state %s", capture.Success)
 		return false
 	}
 

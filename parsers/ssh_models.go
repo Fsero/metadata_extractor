@@ -14,10 +14,38 @@ type Trace struct {
 	ThreadVTid          int    `json:"thread.vtid",omitempty`
 }
 type ByUnixTime []Trace
+type ByEventNumber []Trace
 
-func (a ByUnixTime) Len() int           { return len(a) }
-func (a ByUnixTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByUnixTime) Less(i, j int) bool { return a[i].EventOutputUnixTime < a[j].EventOutputUnixTime }
+func (a ByUnixTime) Len() int      { return len(a) }
+func (a ByUnixTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByUnixTime) Less(i, j int) bool {
+
+	if a[i].EventOutputUnixTime == a[j].EventOutputUnixTime {
+		if a[i].ThreadTid == a[j].ThreadTid {
+			if a[i].ThreadVTid == a[j].ThreadVTid {
+				return a[i].EventNumber < a[j].EventNumber
+			}
+			return a[i].ThreadVTid < a[j].ThreadVTid
+		}
+		return a[i].ThreadTid < a[j].ThreadTid
+	}
+	return a[i].EventOutputUnixTime < a[j].EventOutputUnixTime
+
+}
+
+func (a ByEventNumber) Len() int      { return len(a) }
+func (a ByEventNumber) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByEventNumber) Less(i, j int) bool {
+	switch {
+	case a[i].EventOutputUnixTime < a[j].EventOutputUnixTime:
+		// p < q, so we have a decision.
+		return true
+	case a[i].EventOutputUnixTime > a[j].EventOutputUnixTime:
+		// p > q, so we have a decision.
+		return false
+	}
+	return a[i].ThreadTid < a[j].ThreadTid
+}
 
 type AttackerLoginAttempt struct {
 	UnixTime    string
@@ -26,6 +54,7 @@ type AttackerLoginAttempt struct {
 	Password    string
 	Successful  bool
 	ContainerID string
+	Hostname    string
 }
 
 type AttackerActivity struct {
@@ -35,15 +64,6 @@ type AttackerActivity struct {
 	PID         string
 	Datetime    string
 	Activity    string
-}
-
-type extraction struct {
-	User        string
-	Hostname    string
-	Success     string
-	Password    string
-	IP          string
-	ContainerID string
 }
 type activitylog struct {
 	PID         string
