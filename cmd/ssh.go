@@ -24,8 +24,6 @@ import (
 
 	"strings"
 
-	"time"
-
 	"bitbucket.org/fseros/metadata_extractor/config"
 	"bitbucket.org/fseros/metadata_extractor/helpers"
 	"bitbucket.org/fseros/metadata_extractor/parsers"
@@ -80,7 +78,6 @@ var sshCmd = &cobra.Command{
 				if err := notify.Watch(path, c, notify.Create); err != nil {
 					return err
 				}
-
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
@@ -95,7 +92,7 @@ var sshCmd = &cobra.Command{
 							logrus.Debugf("partial file %s found skipping", event.Path())
 							continue
 						}
-						time.Sleep(10 * time.Second)
+
 						logrus.Infof("new capture file found! processing %s", event.Path())
 						logrus.Debugf("notify event %s", event.Path())
 						// sometimes we receive the notification before the file has been written really due
