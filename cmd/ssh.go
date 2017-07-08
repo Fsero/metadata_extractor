@@ -33,6 +33,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func writeOutput(file string, geoIP *geoip.GeoIP, cfg *config.GlobalConfig) {
+	var loginAttempts []parsers.AttackerLoginAttempt
+	var activity []parsers.AttackerActivity
+
+	loginAttempts = parsers.ExtractAttackerLoginAttempt(file)
+	if loginAttempts != nil && len(loginAttempts) > 0 {
+		cfg.Writer.WriteAttackerLoginAttempts(loginAttempts, geoIP, cfg)
+	} else {
+		logrus.Warningf("No login attempts found in %s maybe incomplete?, not traces found moving on", file)
+	}
+	activity = parsers.ExtractAttackerActivity(file)
+	if activity != nil && len(activity) > 0 {
+		cfg.Writer.WriteAttackerActivies(activity, cfg)
+	} else {
+		logrus.Warningf("No activities found in %s maybe incomplete?", file)
+	}
+}
+
 // sshCmd represents the ssh command
 var sshCmd = &cobra.Command{
 	Use:   "ssh",
@@ -40,8 +58,6 @@ var sshCmd = &cobra.Command{
 	Long: `Extracts metadata from sysdig captures of ssh containers. 
 	this process is extremely cpu intensive and fragile, do not try at home.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var loginAttempts []parsers.AttackerLoginAttempt
-		var activity []parsers.AttackerActivity
 		var geoIP *geoip.GeoIP
 
 		var cfg *config.GlobalConfig
@@ -56,10 +72,8 @@ var sshCmd = &cobra.Command{
 					logrus.Debugf(" %s does not exist", f)
 					continue
 				}
-				loginAttempts = parsers.ExtractAttackerLoginAttempt(f)
-				activity = parsers.ExtractAttackerActivity(f)
-				cfg.Writer.WriteAttackerActivies(activity, cfg)
-				cfg.Writer.WriteAttackerLoginAttempts(loginAttempts, geoIP, cfg)
+				writeOutput(f, geoIP, cfg)
+
 			}
 		} else {
 			if cfg.ProbeID == "" {
@@ -92,15 +106,11 @@ var sshCmd = &cobra.Command{
 							logrus.Debugf("partial file %s found skipping", event.Path())
 							continue
 						}
-
 						logrus.Infof("new capture file found! processing %s", event.Path())
 						logrus.Debugf("notify event %s", event.Path())
 						// sometimes we receive the notification before the file has been written really due
 						// to be in the cache. so we wait here one second to give time to hdd for flushing.
-						loginAttempts = parsers.ExtractAttackerLoginAttempt(event.Path())
-						activity = parsers.ExtractAttackerActivity(event.Path())
-						cfg.Writer.WriteAttackerActivies(activity, cfg)
-						cfg.Writer.WriteAttackerLoginAttempts(loginAttempts, geoIP, cfg)
+						writeOutput(event.Path(), geoIP, cfg)
 					case <-ctx.Done():
 						return ctx.Err()
 					}

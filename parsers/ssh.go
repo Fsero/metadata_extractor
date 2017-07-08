@@ -231,8 +231,8 @@ func ExtractAttackerLoginAttempt(file string) []AttackerLoginAttempt {
 	logrus.Debugf("STDERR: %s", stderr)
 	if err != nil {
 		if checkSysdigFailure(output, stderr, file) {
-			logrus.Fatalf("[ExtractAttackerActivity] Unable to launch sysdig %s", err)
-
+			logrus.Debugf("[ExtractAttackerActivity] Unable to launch sysdig %s", err)
+			return nil
 		}
 	}
 	var traces []Trace
@@ -341,7 +341,8 @@ func ExtractAttackerActivity(file string) []AttackerActivity {
 	output, stderr, err := helpers.Pipeline(sysdig, egrep)
 	if err != nil {
 		if checkSysdigFailure(output, stderr, file) {
-			logrus.Fatalf("[ExtractAttackerActivity] Unable to launch sysdig %s", err)
+			logrus.Debugf("[ExtractAttackerActivity] Unable to launch sysdig %s", err)
+			return nil
 
 		}
 		// if stderr is not empty, then something nasty happened if not is just an empty file
