@@ -61,7 +61,7 @@ func (e ElasticOutputClient) createAttemptsIndex(indexDate time.Time) {
 	indexName := fmt.Sprintf("ssh_login_attempts-%d-%d", indexDate.Year(), indexDate.Month())
 	exists, err := e.client.IndexExists(indexName).Do(context.Background())
 	if err != nil {
-		logrus.Error(err)
+		logrus.Fatal(err)
 	}
 	logrus.Debugf("[createAttemptsIndex] index %s exists? %s", indexName, exists)
 
@@ -132,10 +132,10 @@ func (e ElasticOutputClient) createAttemptsIndex(indexDate time.Time) {
 		createIndex, err := e.client.CreateIndex(indexName).BodyString(mapping).Do(context.Background())
 		if err != nil {
 			// Handle error
-			logrus.Error(err)
+			logrus.Fatal(err)
 		}
 		if !createIndex.Acknowledged {
-			logrus.Error(err)
+			logrus.Fatal(err)
 
 		}
 
@@ -147,7 +147,7 @@ func (e ElasticOutputClient) createSSHActivitiesIndexIfnotExist(indexDate time.T
 	indexName := fmt.Sprintf("ssh_activities-%d-%d", indexDate.Year(), indexDate.Month())
 	exists, err := e.client.IndexExists(indexName).Do(context.Background())
 	if err != nil {
-		logrus.Error(err)
+		logrus.Fatal(err)
 	}
 	logrus.Debugf("[createSSHActivitiesIndexIfnotExist] index %s exists? %s", indexName, exists)
 
@@ -209,10 +209,10 @@ func (e ElasticOutputClient) createSSHActivitiesIndexIfnotExist(indexDate time.T
 		createIndex, err := e.client.CreateIndex(indexName).BodyString(mapping).Do(context.Background())
 		if err != nil {
 			// Handle error
-			logrus.Error(err)
+			logrus.Fatal(err)
 		}
 		if !createIndex.Acknowledged {
-			logrus.Error(err)
+			logrus.Fatal(err)
 
 		}
 
