@@ -17,6 +17,7 @@ package cmd
 import (
 	"context"
 	"os"
+	"path/filepath"
 
 	"golang.org/x/sync/errgroup"
 
@@ -68,12 +69,19 @@ var sshCmd = &cobra.Command{
 		}
 		if !cfg.Follow {
 			for _, f := range args {
-				if _, err := os.Stat(f); os.IsNotExist(err) {
-					logrus.Debugf(" %s does not exist", f)
-					continue
+				files, err := filepath.Glob(f)
+				if err != nil {
+					logrus.Fatalf("[cmd.SSH] invalid path %s", err)
+					os.Exit(1)
 				}
-				writeOutput(f, geoIP, cfg)
+				for _, file := range files {
+					writeOutput(file, geoIP, cfg)
 
+					if _, err := os.Stat(file); os.IsNotExist(err) {
+						logrus.Debugf(" %s does not exist", file)
+						continue
+					}
+				}
 			}
 		} else {
 			if cfg.ProbeID == "" {
