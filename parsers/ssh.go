@@ -116,7 +116,6 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 			trace1 = m[keys[k+1]]
 			logrus.Debugf("%d %+v\n", keys[k+1], m[keys[k+1]])
 		}
-
 		switch {
 		case len(trace0) <= 0 && len(trace1) <= 0:
 			logrus.Fatalf("[parseTraces] invalid block, something nasty happened")
@@ -138,7 +137,6 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 			} else {
 				elem1 = Trace{}
 			}
-
 			var capture, p, l AttackerLoginAttempt
 			logrus.Debugf("elem0 %+v elem1 %+v", elem0, elem1)
 			switch {
@@ -151,6 +149,7 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 				fields = loginAttemptRegexp.FindStringSubmatch(str)
 				l = extractLoginAttempt(fields)
 				l.UnixTime = (strconv.FormatInt(elem1.EventOutputUnixTime, 10)[0:13])
+				l.ContainerID = elem1.ContainerID
 				logrus.Debug("elem0 == pass and elem1 == login")
 
 			case matchesRegexpTrace(elem1, passwordInputRegexp) && matchesRegexpTrace(elem0, loginAttemptRegexp):
@@ -161,6 +160,7 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 				fields = loginAttemptRegexp.FindStringSubmatch(str)
 				l = extractLoginAttempt(fields)
 				l.UnixTime = (strconv.FormatInt(elem0.EventOutputUnixTime, 10)[0:13])
+				l.ContainerID = elem0.ContainerID
 				logrus.Debug("elem1 == pass and elem0 == login")
 
 			case matchesRegexpTrace(elem0, passwordInputRegexp) && matchesRegexpTrace(elem1, passwordInputRegexp):
@@ -180,6 +180,7 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 						l = extractLoginAttempt(fields)
 						l.UnixTime = (strconv.FormatInt(elem1.EventOutputUnixTime, 10)[0:13])
 						p.Password = `'NOTFOUND'`
+						l.ContainerID = elem1.ContainerID
 						logrus.Debugf("[parseTraces] not password found :-(")
 
 						logrus.Debug("elem0 == [] and elem1 == login")
@@ -192,6 +193,7 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 						l = extractLoginAttempt(fields)
 						l.UnixTime = (strconv.FormatInt(elem0.EventOutputUnixTime, 10)[0:13])
 						p.Password = `'NOTFOUND'`
+						l.ContainerID = elem0.ContainerID
 						logrus.Debugf("[parseTraces] not password found :-(")
 
 						logrus.Debug("elem0 == login and elem1 == [] ")
