@@ -254,7 +254,9 @@ func (e ElasticOutputClient) WriteAttackerActivies(activities []parsers.Attacker
 				probeprovider = cfg.Probe.Provider
 				probelocation, err = elastic.GeoPointFromString(probestringlocation)
 				if err != nil {
-					logrus.Fatalf("Unable to get geo point from %s %+v", probestringlocation, probelocation)
+					logrus.Errorf("Unable to get geo point from %s %+v", probestringlocation, probelocation)
+					probelocation = &elastic.GeoPoint{}
+
 				}
 				logrus.Infof("%s %+v", probestringlocation, probelocation)
 			}
@@ -398,7 +400,8 @@ func (e ElasticOutputClient) WriteAttackerLoginAttempts(attempts []parsers.Attac
 				probeprovider = cfg.Probe.Provider
 				probelocation, err = elastic.GeoPointFromString(probestringlocation)
 				if err != nil {
-					logrus.Fatalf("Unable to get geo point from %s %+v", probestringlocation, probelocation)
+					logrus.Errorf("Unable to get geo point from %s %+v", probestringlocation, probelocation)
+					probelocation = &elastic.GeoPoint{}
 				}
 
 				logrus.Debugf("location %s GeoPoint %+v", probestringlocation, probelocation)
@@ -406,7 +409,9 @@ func (e ElasticOutputClient) WriteAttackerLoginAttempts(attempts []parsers.Attac
 			}
 			location, err := elastic.GeoPointFromString(GeoLocation)
 			if err != nil {
-				logrus.Fatalf("Unable to get geo point from %s %+v", GeoLocation, location)
+				logrus.Errorf("Unable to get geo point from %s %+v", GeoLocation, location)
+				location = &elastic.GeoPoint{}
+
 			}
 			logrus.Debugf("location %s GeoPoint %+v", GeoLocation, location)
 
