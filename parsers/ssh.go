@@ -11,9 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
-
 	"bitbucket.org/fseros/metadata_extractor/helpers"
+	"github.com/Sirupsen/logrus"
 )
 
 var loginAttemptRegexp = regexp.MustCompile(`(res=\d+) (data=.*PAM:authentication.*)(acct=.*)(exe=.*)(hostname=.*)(addr=[\d{1,3}\.]+).*(res=failed|success).*`)
@@ -181,8 +180,7 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 						l.UnixTime = (strconv.FormatInt(elem1.EventOutputUnixTime, 10)[0:13])
 						p.Password = `'NOTFOUND'`
 						l.ContainerID = elem1.ContainerID
-						logrus.Debugf("[parseTraces] not password found :-(")
-
+						logrus.Debugf("[parseTraces] no password found :-(")
 						logrus.Debug("elem0 == [] and elem1 == login")
 					}
 				} else if elem1.ContainerID == "" {
@@ -194,8 +192,7 @@ func parseTraces(traces []Trace) []AttackerLoginAttempt {
 						l.UnixTime = (strconv.FormatInt(elem0.EventOutputUnixTime, 10)[0:13])
 						p.Password = `'NOTFOUND'`
 						l.ContainerID = elem0.ContainerID
-						logrus.Debugf("[parseTraces] not password found :-(")
-
+						logrus.Debugf("[parseTraces] no password found :-(")
 						logrus.Debug("elem0 == login and elem1 == [] ")
 					}
 				} else {
