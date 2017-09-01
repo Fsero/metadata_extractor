@@ -118,6 +118,7 @@ func init() {
 	RootCmd.PersistentFlags().StringVarP(&cfg.SinkerAPIURL, "sinker_api_url", "s", "http://main01.superprivyhosting.com:38080", "sinker_api_url")
 	RootCmd.PersistentFlags().BoolVarP(&cfg.Follow, "follow", "f", false, "follow traces created on fs, needs -i parameter")
 	RootCmd.PersistentFlags().StringVarP(&cfg.Tracespath, "tracebasepath", "d", "/var/log/traces", "Where the traces are stored ")
+	RootCmd.PersistentFlags().StringVarP(&cfg.SyncBandwidthLimit, "bandwidthlimit", "b", "1024", "Amount of bandwidth in KiB used for syncing files")
 	RootCmd.PersistentFlags().BoolVarP(&cfg.Verbose, "verbose", "v", false, "gives detailed logging")
 
 	viper.BindPFlag("output", RootCmd.PersistentFlags().Lookup("output"))
@@ -127,6 +128,7 @@ func init() {
 	viper.BindPFlag("sinker_api_url", RootCmd.PersistentFlags().Lookup("sinker_api_url"))
 	viper.BindPFlag("follow", RootCmd.PersistentFlags().Lookup("follow"))
 	viper.BindPFlag("tracebasepath", RootCmd.PersistentFlags().Lookup("tracebasepath"))
+	viper.BindPFlag("bandwidthlimit", RootCmd.PersistentFlags().Lookup("bandwidthlimit"))
 	viper.BindPFlag("verbose", RootCmd.PersistentFlags().Lookup("verbose"))
 
 	viper.SetDefault("follow", false)

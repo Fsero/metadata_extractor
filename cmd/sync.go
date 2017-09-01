@@ -94,7 +94,7 @@ var fileCmd = &cobra.Command{
 			for {
 				select {
 				case <-tickChan:
-					args := append([]string{}, `--bwlimit=1024`, `-avzh`, fmt.Sprintf(`file@%s:%s*`, cfg.Probe.FQDN, cfg.Probe.FQDN), fmt.Sprintf(`%s`, path))
+					args := append([]string{}, fmt.Sprintf(`--bwlimit=%s`, cfg.SyncBandwidthLimit), `-avzh`, fmt.Sprintf(`file@%s:%s*`, cfg.Probe.FQDN, cfg.Probe.FQDN), fmt.Sprintf(`%s`, path))
 					logrus.Debugf(strings.Join(args[:], " "))
 
 					rsync := exec.Command("/usr/bin/rsync", args...)
